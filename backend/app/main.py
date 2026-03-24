@@ -4,12 +4,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import Base, SessionLocal, engine
 from app import models
 from app.seed_data import seed_database
+
 from app.schemas import (
     ItemResponse,
     ItemDetailResponse,
     CompareResponse,
     ReverseLookupItemResponse,
     StatsResponse,
+    MultiCompareResponse,
+    DetailedMultiCompareResponse,
+    AdvancedCompareResponse,
 )
 
 
@@ -120,6 +124,62 @@ def compare_items(item1: int, item2: int, db: Session = Depends(get_db)):
         "common_components": common_components,
         "unique_to_item_1": unique_to_item_1,
         "unique_to_item_2": unique_to_item_2,
+    }
+
+@app.get("/compare-multi", response_model=AdvancedCompareResponse)
+def compare_multiple_items(item_ids: str, db: Session = Depends(get_db)):
+    id_list = [int(x.strip()) for x in item_ids.split(",") if x.strip()]
+
+    items = db.query(models.Item).filter(models.Item.id.in_(id_list)).all()
+
+    if not items:
+        return {
+            "selected_items": [],
+            "comparison_rows": []
+        }
+
+    selected_item_names = [item.name for item in items]
+    total_selected = len(selected_item_names)
+
+    component_map = {}
+
+    for item in items:
+        for link in item.components:
+            comp = link.component
+            component_name = comp.component_name
+
+            if component_name not in component_map:
+                component_map[component_name] = {}
+
+            component_map[component_name][item.name] = {
+                "version": comp.version,
+                "license": comp.license,
+                "supplier": comp.supplier
+            }
+
+    comparison_rows = []
+
+    for component_name, item_details in component_map.items():
+        count_present = len(item_details)
+
+        if count_present == total_selected:
+            category = "common"
+        elif count_present == 1:
+            category = "unique"
+        else:
+            category = "partial"
+
+        comparison_rows.append({
+            "component_name": component_name,
+            "category": category,
+            "item_details": item_details
+        })
+
+    comparison_rows = sorted(comparison_rows, key=lambda x: x["component_name"].lower())
+
+    return {
+        "selected_items": selected_item_names,
+        "comparison_rows": comparison_rows
     }
 
 @app.get("/components/{component_name}", response_model=list[ReverseLookupItemResponse])

@@ -60,3 +60,28 @@ class StatsResponse(BaseModel):
     total_devices: int
     total_applications: int
     total_components: int
+
+class MultiCompareResponse(BaseModel):
+    selected_items: list[str]
+    common_components: list[str]
+    unique_components: dict[str, list[str]]
+
+class ComparisonRow(BaseModel):
+    component_name: str
+    present_in: list[str]
+    category: str
+
+
+class DetailedMultiCompareResponse(BaseModel):
+    selected_items: list[str]
+    comparison_rows: list[ComparisonRow]
+
+class DetailedComparisonRow(BaseModel):
+    component_name: str
+    category: str
+    item_details: dict[str, dict[str, str | None]]
+
+
+class AdvancedCompareResponse(BaseModel):
+    selected_items: list[str]
+    comparison_rows: list[DetailedComparisonRow]    

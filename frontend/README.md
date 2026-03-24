@@ -1,16 +1,51 @@
-# React + Vite
+# SBOM Finder
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+SBOM Finder is a full-stack web application for exploring and comparing Software Bill of Materials (SBOM) data for both devices and applications.
 
-Currently, two official plugins are available:
+The system allows users to search items, view SBOM component details, compare multiple items side by side, and view high-level statistics from the SBOM directory.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Features
 
-## React Compiler
+- View a directory of devices and applications
+- Search by item name
+- Filter by item type and manufacturer
+- View detailed SBOM information for each item
+- Compare multiple items at once
+- See component presence, version, license, and supplier differences
+- View a statistics dashboard with total counts
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Tech Stack
 
-## Expanding the ESLint configuration
+### Frontend
+- React
+- Vite
+- React Router
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Backend
+- FastAPI
+- SQLAlchemy
+
+### Database
+- SQLite
+
+## Project Structure
+
+```text
+SBOM-Finder/
+  backend/
+    app/
+      main.py
+      database.py
+      models.py
+      schemas.py
+      seed_data.py
+    venv/
+  frontend/
+    src/
+      pages/
+        Home.jsx
+        ItemDetails.jsx
+        Compare.jsx
+        Stats.jsx
+      App.jsx
+      main.jsx
