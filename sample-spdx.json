@@ -1,0 +1,19 @@
+{
+    "name": "Test SPDX App",
+    "versionInfo": "1.0.0",
+    "supplier": "Test Org",
+    "packages": [
+      {
+        "name": "openssl",
+        "versionInfo": "3.0.0",
+        "supplier": "OpenSSL",
+        "licenseConcluded": "Apache-2.0"
+      },
+      {
+        "name": "zlib",
+        "versionInfo": "1.2.11",
+        "supplier": "Zlib",
+        "licenseConcluded": "Zlib"
+      }
+    ]
+  }

@@ -1,0 +1,47 @@
+{
+    "bomFormat": "CycloneDX",
+    "specVersion": "1.5",
+    "version": 1,
+    "metadata": {
+      "component": {
+        "type": "application",
+        "name": "Sample Imported App",
+        "version": "1.0.0",
+        "supplier": {
+          "name": "Sample Vendor"
+        }
+      }
+    },
+    "components": [
+      {
+        "type": "library",
+        "name": "OpenSSL",
+        "version": "3.0.0",
+        "supplier": {
+          "name": "OpenSSL Software Foundation"
+        },
+        "licenses": [
+          {
+            "license": {
+              "id": "Apache-2.0"
+            }
+          }
+        ]
+      },
+      {
+        "type": "library",
+        "name": "SQLite",
+        "version": "3.42.0",
+        "supplier": {
+          "name": "SQLite Consortium"
+        },
+        "licenses": [
+          {
+            "license": {
+              "name": "Public Domain"
+            }
+          }
+        ]
+      }
+    ]
+  }

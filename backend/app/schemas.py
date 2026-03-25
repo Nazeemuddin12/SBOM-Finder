@@ -10,9 +10,15 @@ class ItemResponse(BaseModel):
     developer: str | None = None
     operating_system: str | None = None
     description: str | None = None
+    owner: str | None = None
+    version: str | None = None
+    source_format: str | None = None
+    source_name: str | None = None
 
     class Config:
         from_attributes = True
+
+
 class ComponentResponse(BaseModel):
     component_name: str
     version: str | None = None
@@ -32,11 +38,14 @@ class ItemDetailResponse(BaseModel):
     developer: str | None = None
     operating_system: str | None = None
     description: str | None = None
+    owner: str | None = None
+    version: str | None = None
+    source_format: str | None = None
+    source_name: str | None = None
     components: list[ComponentResponse]
 
     class Config:
         from_attributes = True
-
 class CompareResponse(BaseModel):
     item_1: str
     item_2: str

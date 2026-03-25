@@ -3,6 +3,7 @@ import Home from "./pages/Home";
 import ItemDetails from "./pages/ItemDetails";
 import Compare from "./pages/Compare";
 import Stats from "./pages/Stats";
+import Import from "./pages/Import";
 
 function App() {
   return (
@@ -11,6 +12,7 @@ function App() {
       <Route path="/item/:id" element={<ItemDetails />} />
       <Route path="/compare" element={<Compare />} />
       <Route path="/stats" element={<Stats />} />
+      <Route path="/import" element={<Import />} />
     </Routes>
   );
 }

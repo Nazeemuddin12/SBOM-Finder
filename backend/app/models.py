@@ -9,12 +9,17 @@ class Item(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    item_type = Column(String, nullable=False)
+    item_type = Column(String, nullable=False)   # device or application
     category = Column(String, nullable=True)
     manufacturer = Column(String, nullable=True)
     developer = Column(String, nullable=True)
     operating_system = Column(String, nullable=True)
     description = Column(String, nullable=True)
+
+    owner = Column(String, nullable=True)
+    version = Column(String, nullable=True)
+    source_format = Column(String, nullable=True)   # cyclonedx / spdx / seed
+    source_name = Column(String, nullable=True)
 
     components = relationship("ItemComponent", back_populates="item")
 

@@ -1,4 +1,6 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, UploadFile, File
+import json
+from app.importers import import_cyclonedx_json, import_spdx_json
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import Base, SessionLocal, engine
@@ -36,13 +38,13 @@ def get_db():
         db.close()
 
 
-@app.on_event("startup")
-def startup_event():
-    db: Session = SessionLocal()
-    try:
-        seed_database(db)
-    finally:
-        db.close()
+#@app.on_event("startup")
+#def startup_event():
+    #db: Session = SessionLocal()
+    #try:
+       # seed_database(db)
+   # finally:
+       # db.close()
 
 
 @app.get("/")
@@ -208,4 +210,27 @@ def get_stats(db: Session = Depends(get_db)):
         "total_devices": total_devices,
         "total_applications": total_applications,
         "total_components": total_components,
+    }
+
+@app.post("/import/cyclonedx")
+async def import_cyclonedx(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    content = await file.read()
+    data = json.loads(content.decode("utf-8"))
+    item = import_cyclonedx_json(data, db)
+    return {
+        "message": "CycloneDX file imported successfully",
+        "item_id": item.id,
+        "item_name": item.name
+    }
+
+
+@app.post("/import/spdx")
+async def import_spdx(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    content = await file.read()
+    data = json.loads(content.decode("utf-8"))
+    item = import_spdx_json(data, db)
+    return {
+        "message": "SPDX file imported successfully",
+        "item_id": item.id,
+        "item_name": item.name
     }

@@ -121,32 +121,24 @@ function Home() {
         </div>
 
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-          <button
-            onClick={handleSearch}
-            style={{ padding: "10px 16px", cursor: "pointer" }}
-          >
+          <button onClick={handleSearch} style={{ padding: "10px 16px", cursor: "pointer" }}>
             Search
           </button>
 
-          <button
-            onClick={handleReset}
-            style={{ padding: "10px 16px", cursor: "pointer" }}
-          >
+          <button onClick={handleReset} style={{ padding: "10px 16px", cursor: "pointer" }}>
             Reset
           </button>
 
-          <button
-            onClick={() => navigate("/compare")}
-            style={{ padding: "10px 16px", cursor: "pointer" }}
-          >
+          <button onClick={() => navigate("/compare")} style={{ padding: "10px 16px", cursor: "pointer" }}>
             Go to Compare Page
           </button>
 
-          <button
-            onClick={() => navigate("/stats")}
-            style={{ padding: "10px 16px", cursor: "pointer" }}
-          >
+          <button onClick={() => navigate("/stats")} style={{ padding: "10px 16px", cursor: "pointer" }}>
             View Stats Dashboard
+          </button>
+
+          <button onClick={() => navigate("/import")} style={{ padding: "10px 16px", cursor: "pointer" }}>
+            Import SBOM
           </button>
         </div>
       </div>
@@ -178,6 +170,9 @@ function Home() {
           <p><strong>Manufacturer:</strong> {item.manufacturer}</p>
           <p><strong>Category:</strong> {item.category}</p>
           <p><strong>Operating System:</strong> {item.operating_system}</p>
+          <p><strong>Owner:</strong> {item.owner || "N/A"}</p>
+          <p><strong>Version:</strong> {item.version || "N/A"}</p>
+          <p><strong>Source Format:</strong> {item.source_format || "N/A"}</p>
         </div>
       ))}
     </div>
