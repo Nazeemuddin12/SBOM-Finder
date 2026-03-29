@@ -1,13 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-const cardStyle = {
-  border: "1px solid #ccc",
-  borderRadius: "10px",
-  padding: "20px",
-  minWidth: "220px",
-  textAlign: "center",
-};
+import { API_BASE_URL } from "../config";
 
 function Stats() {
   const navigate = useNavigate();
@@ -15,7 +8,7 @@ function Stats() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/stats")
+    fetch(`${API_BASE_URL}/stats`)
       .then((res) => {
         if (!res.ok) {
           throw new Error("Failed to load stats");
@@ -34,57 +27,67 @@ function Stats() {
 
   if (error) {
     return (
-      <div style={{ padding: "20px", maxWidth: "1100px", margin: "0 auto" }}>
-        <button onClick={() => navigate("/")}>⬅ Back</button>
-        <p style={{ color: "red" }}>Error: {error}</p>
+      <div className="page-shell">
+        <button className="back-btn ghost" onClick={() => navigate("/")}>
+          ⬅ Back
+        </button>
+        <p className="error-text">Error: {error}</p>
       </div>
     );
   }
 
   if (!stats) {
     return (
-      <div style={{ padding: "20px", maxWidth: "1100px", margin: "0 auto" }}>
-        <button onClick={() => navigate("/")}>⬅ Back</button>
+      <div className="page-shell">
+        <button className="back-btn ghost" onClick={() => navigate("/")}>
+          ⬅ Back
+        </button>
         <p>Loading stats...</p>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: "20px", maxWidth: "1100px", margin: "0 auto" }}>
-      <button onClick={() => navigate("/")}>⬅ Back</button>
+    <div className="page-shell">
+      <button className="back-btn ghost" onClick={() => navigate("/")}>
+        ⬅ Back
+      </button>
 
-      <h1>SBOM Statistics Dashboard</h1>
-      <p>Overview of the current SBOM directory.</p>
+      <section className="section-card">
+        <h2 className="section-title">SBOM Statistics Dashboard</h2>
+        <p className="section-subtitle">
+          Overview of indexed records, components, and tracked products.
+        </p>
 
-      <div
-        style={{
-          display: "flex",
-          gap: "16px",
-          flexWrap: "wrap",
-          marginTop: "25px",
-        }}
-      >
-        <div style={cardStyle}>
-          <h2>{stats.total_items}</h2>
-          <p>Total Items</p>
+        <div className="stats-grid">
+          <div className="metric-card metric-blue">
+            <h3>{stats.total_items}</h3>
+            <p>Total Items</p>
+          </div>
+
+          <div className="metric-card metric-green">
+            <h3>{stats.total_devices}</h3>
+            <p>Total Devices</p>
+          </div>
+
+          <div className="metric-card metric-pink">
+            <h3>{stats.total_applications}</h3>
+            <p>Total Applications</p>
+          </div>
+
+          <div className="metric-card metric-gold">
+            <h3>{stats.total_components}</h3>
+            <p>Total Components</p>
+          </div>
         </div>
 
-        <div style={cardStyle}>
-          <h2>{stats.total_devices}</h2>
-          <p>Total Devices</p>
+        <div style={{ marginTop: "18px" }}>
+          <div className="metric-card metric-blue">
+            <h3>{stats.total_tracked_products}</h3>
+            <p>Tracked Products</p>
+          </div>
         </div>
-
-        <div style={cardStyle}>
-          <h2>{stats.total_applications}</h2>
-          <p>Total Applications</p>
-        </div>
-
-        <div style={cardStyle}>
-          <h2>{stats.total_components}</h2>
-          <p>Total Components</p>
-        </div>
-      </div>
+      </section>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel
 
 
@@ -46,6 +47,8 @@ class ItemDetailResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
 class CompareResponse(BaseModel):
     item_1: str
     item_2: str
@@ -69,11 +72,14 @@ class StatsResponse(BaseModel):
     total_devices: int
     total_applications: int
     total_components: int
+    total_tracked_products: int
+
 
 class MultiCompareResponse(BaseModel):
     selected_items: list[str]
     common_components: list[str]
     unique_components: dict[str, list[str]]
+
 
 class ComparisonRow(BaseModel):
     component_name: str
@@ -85,6 +91,7 @@ class DetailedMultiCompareResponse(BaseModel):
     selected_items: list[str]
     comparison_rows: list[ComparisonRow]
 
+
 class DetailedComparisonRow(BaseModel):
     component_name: str
     category: str
@@ -93,4 +100,51 @@ class DetailedComparisonRow(BaseModel):
 
 class AdvancedCompareResponse(BaseModel):
     selected_items: list[str]
-    comparison_rows: list[DetailedComparisonRow]    
+    comparison_rows: list[DetailedComparisonRow]
+
+
+class TrackedProductCreate(BaseModel):
+    name: str
+    product_type: str | None = None
+    vendor: str | None = None
+    notes: str | None = None
+
+
+class TrackedProductResponse(BaseModel):
+    id: int
+    name: str
+    product_type: str | None = None
+    vendor: str | None = None
+    status: str | None = None
+    notes: str | None = None
+    created_at: datetime | None = None
+    last_checked: datetime | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class ExternalSearchResult(BaseModel):
+    name: str | None = None
+    full_name: str | None = None
+    url: str | None = None
+    description: str | None = None
+    owner: str | None = None
+    stars: int | None = None
+    source: str | None = None
+
+
+class SearchWithExternalResponse(BaseModel):
+    local_results: list[ItemResponse]
+    external_results: list[ExternalSearchResult]
+
+
+class ExternalItemCreate(BaseModel):
+    name: str
+    full_name: str | None = None
+    url: str | None = None
+    description: str | None = None
+    owner: str | None = None
+    stars: int | None = None
+    source: str | None = None
+    item_type: str | None = "application"

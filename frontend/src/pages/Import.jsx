@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { API_BASE_URL } from "../config";
 
 function Import() {
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
+
   const [file, setFile] = useState(null);
   const [format, setFormat] = useState("cyclonedx");
   const [message, setMessage] = useState("");
@@ -22,8 +25,8 @@ function Import() {
 
     const endpoint =
       format === "cyclonedx"
-        ? "http://127.0.0.1:8000/import/cyclonedx"
-        : "http://127.0.0.1:8000/import/spdx";
+        ? `${API_BASE_URL}/import/cyclonedx`
+        : `${API_BASE_URL}/import/spdx`;
 
     try {
       const res = await fetch(endpoint, {
@@ -37,77 +40,74 @@ function Import() {
         throw new Error(data.detail || "Import failed");
       }
 
-      setMessage(`✅ ${data.message} (${data.item_name})`);
+      setMessage(`Imported successfully: ${data.item_name}`);
+
       setFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     } catch (error) {
-      setMessage(`❌ ${error.message}`);
+      setMessage(error.message || "Something went wrong during upload");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ padding: "20px", maxWidth: "900px", margin: "0 auto" }}>
-      <button
-        onClick={() => navigate("/")}
-        style={{ marginBottom: "20px", padding: "8px 14px", cursor: "pointer" }}
-      >
+    <div className="page-shell">
+      <button className="back-btn" onClick={() => navigate("/")}>
         ⬅ Back
       </button>
 
-      <h1>Import SBOM</h1>
-      <p>Upload a CycloneDX or SPDX JSON file to add real SBOM data into the system.</p>
+      <section className="hero">
+        <h1>Import SBOM</h1>
+        <p>
+          Upload CycloneDX or SPDX JSON files to populate the unified application and device directory.
+        </p>
+      </section>
 
-      <div
-        style={{
-          border: "1px solid #ccc",
-          borderRadius: "10px",
-          padding: "20px",
-          marginTop: "20px",
-        }}
-      >
-        <div style={{ marginBottom: "16px" }}>
-          <label>
-            <strong>SBOM Format:</strong>
-          </label>
-          <br />
-          <select
-            value={format}
-            onChange={(e) => setFormat(e.target.value)}
-            style={{ marginTop: "8px", padding: "10px", minWidth: "220px" }}
-          >
-            <option value="cyclonedx">CycloneDX</option>
-            <option value="spdx">SPDX</option>
-          </select>
+      <section className="section-card upload-box">
+        <h2 className="section-title">Upload File</h2>
+        <p className="section-subtitle">
+          Import real SBOM data to make comparison, lookup, and exploration meaningful.
+        </p>
+
+        <div style={{ display: "grid", gap: "16px" }}>
+          <div>
+            <label><strong>SBOM Format</strong></label>
+            <div style={{ marginTop: "8px" }}>
+              <select value={format} onChange={(e) => setFormat(e.target.value)}>
+                <option value="cyclonedx">CycloneDX</option>
+                <option value="spdx">SPDX</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label><strong>Select JSON File</strong></label>
+            <div style={{ marginTop: "8px" }}>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                onChange={(e) => setFile(e.target.files[0])}
+              />
+            </div>
+          </div>
+
+          <div className="actions-row">
+            <button onClick={handleUpload} disabled={loading}>
+              {loading ? "Uploading..." : "Upload SBOM"}
+            </button>
+          </div>
+
+          {message && (
+            <div className="info-banner">
+              {message}
+            </div>
+          )}
         </div>
-
-        <div style={{ marginBottom: "16px" }}>
-          <label>
-            <strong>Select JSON File:</strong>
-          </label>
-          <br />
-          <input
-            type="file"
-            accept=".json"
-            onChange={(e) => setFile(e.target.files[0])}
-            style={{ marginTop: "8px" }}
-          />
-        </div>
-
-        <button
-          onClick={handleUpload}
-          disabled={loading}
-          style={{ padding: "10px 16px", cursor: "pointer" }}
-        >
-          {loading ? "Uploading..." : "Upload SBOM"}
-        </button>
-
-        {message && (
-          <p style={{ marginTop: "20px" }}>
-            {message}
-          </p>
-        )}
-      </div>
+      </section>
     </div>
   );
 }

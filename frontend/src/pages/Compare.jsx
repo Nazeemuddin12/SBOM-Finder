@@ -1,26 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-const thStyle = {
-  border: "1px solid #ccc",
-  padding: "10px",
-  background: "#222",
-  color: "#fff",
-};
-
-const tdStyle = {
-  border: "1px solid #ccc",
-  padding: "10px",
-  verticalAlign: "top",
-};
-
-const cardStyle = {
-  border: "1px solid #ccc",
-  borderRadius: "10px",
-  padding: "16px",
-  minWidth: "180px",
-  textAlign: "center",
-};
+import { API_BASE_URL } from "../config";
 
 function Compare() {
   const navigate = useNavigate();
@@ -30,227 +10,154 @@ function Compare() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/items")
+    fetch(`${API_BASE_URL}/items`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load items");
         return res.json();
       })
-      .then((data) => setItems(data))
-      .catch((err) => setError(err.message));
+      .then((data) => {
+        setItems(data);
+        setError("");
+      })
+      .catch((err) => {
+        console.error(err);
+        setError(err.message);
+      });
   }, []);
 
   const handleCheckboxChange = (itemId) => {
     setSelectedItems((prev) =>
-      prev.includes(itemId)
-        ? prev.filter((id) => id !== itemId)
-        : [...prev, itemId]
+      prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId]
     );
   };
 
-  const handleCompare = () => {
-    if (selectedItems.length === 0) {
-      setError("Select at least one item");
+  const handleCompare = async () => {
+    if (selectedItems.length < 2) {
+      setError("Please select at least 2 items to compare.");
+      setResult(null);
       return;
     }
 
-    const ids = selectedItems.join(",");
-
-    fetch(`http://127.0.0.1:8000/compare-multi?item_ids=${ids}`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Compare failed");
-        return res.json();
-      })
-      .then((data) => {
-        setResult(data);
-        setError("");
-      })
-      .catch((err) => setError(err.message));
-  };
-
-  const getCategoryColor = (category) => {
-    if (category === "common") return "lightgreen";
-    if (category === "partial") return "orange";
-    if (category === "unique") return "tomato";
-    return "white";
-  };
-
-  const getSummaryCounts = () => {
-    if (!result) {
-      return {
-        totalComparedItems: 0,
-        totalDistinctComponents: 0,
-        commonCount: 0,
-        partialCount: 0,
-        uniqueCount: 0,
-      };
+    if (selectedItems.length > 4) {
+      setError("You can compare at most 4 items.");
+      setResult(null);
+      return;
     }
 
-    const totalDistinctComponents = result.comparison_rows.length;
-    const commonCount = result.comparison_rows.filter(
-      (row) => row.category === "common"
-    ).length;
-    const partialCount = result.comparison_rows.filter(
-      (row) => row.category === "partial"
-    ).length;
-    const uniqueCount = result.comparison_rows.filter(
-      (row) => row.category === "unique"
-    ).length;
+    try {
+      const res = await fetch(`${API_BASE_URL}/compare-multi?item_ids=${selectedItems.join(",")}`);
+      if (!res.ok) throw new Error("Comparison failed");
 
-    return {
-      totalComparedItems: result.selected_items.length,
-      totalDistinctComponents,
-      commonCount,
-      partialCount,
-      uniqueCount,
-    };
+      const data = await res.json();
+      setResult(data);
+      setError("");
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+      setResult(null);
+    }
   };
 
-  const summary = getSummaryCounts();
+  const handleClear = () => {
+    setSelectedItems([]);
+    setResult(null);
+    setError("");
+  };
+
+  const getClassForCategory = (category) => {
+    if (category === "common") return "tag-common";
+    if (category === "partial") return "tag-partial";
+    if (category === "unique") return "tag-unique";
+    return "";
+  };
 
   return (
-    <div style={{ padding: "20px", maxWidth: "1300px", margin: "0 auto" }}>
-      <button onClick={() => navigate("/")}>⬅ Back</button>
-
-      <h1>Compare Items</h1>
-      <p>
-        Select multiple items to compare their components, versions, licenses,
-        and suppliers.
-      </p>
-
-      <div style={{ marginTop: "20px", marginBottom: "20px" }}>
-        {items.map((item) => (
-          <div key={item.id} style={{ marginBottom: "10px" }}>
-            <label>
-              <input
-                type="checkbox"
-                checked={selectedItems.includes(item.id)}
-                onChange={() => handleCheckboxChange(item.id)}
-              />
-              {" "}
-              {item.name} ({item.item_type})
-            </label>
-          </div>
-        ))}
-      </div>
-
-      <button onClick={handleCompare} style={{ marginBottom: "20px" }}>
-        Compare
+    <div className="page-shell">
+      <button className="back-btn ghost" onClick={() => navigate("/")}>
+        ⬅ Back
       </button>
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
+      <section className="section-card">
+        <h2 className="section-title">Compare Items</h2>
+        <p className="section-subtitle">
+          Select 2 to 4 items and inspect shared, partial, and unique SBOM components.
+        </p>
+
+        <div className="compare-selection-grid">
+          {items.map((item) => (
+            <label key={item.id} className="compare-option">
+              <div style={{ display: "flex", alignItems: "start", gap: "12px" }}>
+                <input
+                  type="checkbox"
+                  checked={selectedItems.includes(item.id)}
+                  onChange={() => handleCheckboxChange(item.id)}
+                  style={{ width: "auto", marginTop: "4px" }}
+                />
+                <div>
+                  <strong style={{ fontSize: "1.05rem" }}>{item.name}</strong>
+                  <p style={{ margin: "8px 0 0", color: "#a9b7d0" }}>
+                    {item.item_type || "N/A"} • {item.manufacturer || "Unknown manufacturer"}
+                  </p>
+                </div>
+              </div>
+            </label>
+          ))}
+        </div>
+
+        <div className="actions-row" style={{ marginTop: "18px" }}>
+          <button onClick={handleCompare}>Run Comparison</button>
+          <button className="ghost" onClick={handleClear}>Clear</button>
+        </div>
+
+        {error && <p className="error-text" style={{ marginTop: "14px" }}>{error}</p>}
+      </section>
 
       {result && (
-        <div style={{ marginTop: "30px" }}>
-          <h2>Comparison Summary</h2>
+        <section className="section-card">
+          <h2 className="section-title">Comparison Matrix</h2>
+          <p className="section-subtitle">
+            Common = present in all selected items, Partial = present in some, Unique = present in only one.
+          </p>
 
-          <div
-            style={{
-              display: "flex",
-              gap: "16px",
-              flexWrap: "wrap",
-              marginBottom: "30px",
-              marginTop: "20px",
-            }}
-          >
-            <div style={cardStyle}>
-              <h3>{summary.totalComparedItems}</h3>
-              <p>Compared Items</p>
-            </div>
-
-            <div style={cardStyle}>
-              <h3>{summary.totalDistinctComponents}</h3>
-              <p>Distinct Components</p>
-            </div>
-
-            <div style={cardStyle}>
-              <h3 style={{ color: "lightgreen" }}>{summary.commonCount}</h3>
-              <p>Common Components</p>
-            </div>
-
-            <div style={cardStyle}>
-              <h3 style={{ color: "orange" }}>{summary.partialCount}</h3>
-              <p>Partial Components</p>
-            </div>
-
-            <div style={cardStyle}>
-              <h3 style={{ color: "tomato" }}>{summary.uniqueCount}</h3>
-              <p>Unique Components</p>
-            </div>
-          </div>
-
-          <h2>Advanced Comparison Matrix</h2>
-
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              marginTop: "20px",
-            }}
-          >
-            <thead>
-              <tr>
-                <th style={thStyle}>Component</th>
-                {result.selected_items.map((item, idx) => (
-                  <th key={idx} style={thStyle}>{item}</th>
-                ))}
-                <th style={thStyle}>Category</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {result.comparison_rows.map((row, idx) => (
-                <tr key={idx}>
-                  <td style={tdStyle}>
-                    <strong>{row.component_name}</strong>
-                  </td>
-
-                  {result.selected_items.map((itemName, i) => {
-                    const details = row.item_details[itemName];
-
-                    return (
-                      <td key={i} style={tdStyle}>
-                        {details ? (
-                          <div>
-                            <div>✔️ Present</div>
-                            <div><strong>Version:</strong> {details.version || "N/A"}</div>
-                            <div><strong>License:</strong> {details.license || "N/A"}</div>
-                            <div><strong>Supplier:</strong> {details.supplier || "N/A"}</div>
-                          </div>
-                        ) : (
-                          <div>—</div>
-                        )}
-                      </td>
-                    );
-                  })}
-
-                  <td
-                    style={{
-                      ...tdStyle,
-                      color: getCategoryColor(row.category),
-                      fontWeight: "bold",
-                      textTransform: "capitalize",
-                    }}
-                  >
-                    {row.category}
-                  </td>
+          <div className="table-wrap">
+            <table className="compare-table">
+              <thead>
+                <tr>
+                  <th>Component</th>
+                  {result.selected_items.map((item, idx) => (
+                    <th key={idx}>{item}</th>
+                  ))}
+                  <th>Category</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <div style={{ marginTop: "20px" }}>
-            <p><strong>Legend:</strong></p>
-            <p style={{ color: "lightgreen" }}>
-              Common = present in all selected items
-            </p>
-            <p style={{ color: "orange" }}>
-              Partial = present in some but not all selected items
-            </p>
-            <p style={{ color: "tomato" }}>
-              Unique = present in only one selected item
-            </p>
+              </thead>
+              <tbody>
+                {result.comparison_rows.map((row, idx) => (
+                  <tr key={idx}>
+                    <td><strong>{row.component_name}</strong></td>
+                    {result.selected_items.map((itemName, i) => {
+                      const details = row.item_details[itemName];
+                      return (
+                        <td key={i}>
+                          {details ? (
+                            <div>
+                              <div>✔ Present</div>
+                              <div>Version: {details.version || "N/A"}</div>
+                              <div>License: {details.license || "N/A"}</div>
+                              <div>Supplier: {details.supplier || "N/A"}</div>
+                            </div>
+                          ) : (
+                            <div>—</div>
+                          )}
+                        </td>
+                      );
+                    })}
+                    <td className={getClassForCategory(row.category)}>{row.category}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
+        </section>
       )}
     </div>
   );
