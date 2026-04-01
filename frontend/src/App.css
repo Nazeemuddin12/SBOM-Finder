@@ -1,44 +1,62 @@
-:root {
-  --bg: #07111f;
-  --bg-2: #0d1728;
-  --panel: rgba(16, 24, 42, 0.82);
-  --panel-strong: rgba(19, 30, 53, 0.96);
-  --border: rgba(255, 255, 255, 0.1);
-  --text: #eef4ff;
-  --muted: #a9b7d0;
-  --primary: #5b8cff;
-  --secondary: #00c2a8;
-  --pink: #ff5fa2;
-  --warning: #ffb84d;
-  --danger: #ff6b6b;
-  --success: #34d399;
-  --shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+/* ============================================================
+   Windows 2000 / Early-2000s Retro Theme
+   Color Palette:
+     #d4d0c8  — classic Win2k silver/grey (main surface)
+     #ffffff  — white (inset fields, content areas)
+     #000080  — navy blue (title bars, active accents)
+     #808080  — dark grey (borders, shadows)
+     #000000  — black (text, outlines)
+   ============================================================ */
 
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+/* --- CSS Variables --- */
+:root {
+  --win-bg: #d4d0c8;
+  --win-white: #ffffff;
+  --win-navy: #000080;
+  --win-grey: #808080;
+  --win-black: #000000;
+  --win-silver: #c0c0c0;
+  --win-light: #ece9d8;
+  --win-titlebar-start: #0a246a;
+  --win-titlebar-end: #a6caf0;
+  --win-titlebar-text: #ffffff;
+
+  /* Semantic tokens */
+  --bg:            var(--win-bg);
+  --bg-2:          var(--win-light);
+  --panel:         var(--win-bg);
+  --panel-strong:  var(--win-white);
+  --border:        var(--win-grey);
+  --text:          var(--win-black);
+  --muted:         #444444;
+  --primary:       var(--win-navy);
+  --secondary:     #008080; /* teal */
+  --pink:          #990000;
+  --warning:       #808000;
+  --danger:        #cc0000;
+  --success:       #007700;
+  --shadow:        2px 2px 0 var(--win-grey);
+
+  font-family: "Tahoma", "MS Sans Serif", "Microsoft Sans Serif", Arial, sans-serif;
+  font-size: 11px;
   color: var(--text);
-  background: var(--bg);
-  line-height: 1.5;
+  background: var(--win-bg);
+  line-height: 1.4;
   font-weight: 400;
   font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
+  image-rendering: pixelated;
 }
 
 * {
   box-sizing: border-box;
 }
 
-html,
-body,
-#root {
+html, body, #root {
   margin: 0;
   min-height: 100%;
-  background:
-    radial-gradient(circle at top left, rgba(91, 140, 255, 0.18), transparent 28%),
-    radial-gradient(circle at top right, rgba(255, 95, 162, 0.14), transparent 25%),
-    radial-gradient(circle at bottom left, rgba(0, 194, 168, 0.12), transparent 24%),
-    linear-gradient(180deg, #07111f 0%, #0a1020 100%);
+  background: var(--win-bg);
   color: var(--text);
 }
 
@@ -47,539 +65,838 @@ body {
 }
 
 a {
-  color: inherit;
-  text-decoration: none;
+  color: var(--win-navy);
+  text-decoration: underline;
 }
 
+a:visited {
+  color: #551a8b;
+}
+
+/* ---- Win2k Button (raised 3D bevel) ---- */
 button,
 input,
 select {
-  font: inherit;
+  font-family: "Tahoma", "MS Sans Serif", Arial, sans-serif;
+  font-size: 11px;
 }
 
 button {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: linear-gradient(135deg, #2b4da8 0%, #1f2f66 100%);
-  color: white;
-  padding: 0.9rem 1.1rem;
-  border-radius: 14px;
+  background: var(--win-bg);
+  color: var(--win-black);
+  border: none;
+  padding: 4px 12px;
   cursor: pointer;
-  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
-  box-shadow: 0 10px 22px rgba(31, 47, 102, 0.35);
-  font-weight: 600;
+  position: relative;
+  min-height: 23px;
+  font-size: 11px;
+  font-family: "Tahoma", "MS Sans Serif", Arial, sans-serif;
+
+  /* Classic Win2k raised bevel */
+  border-top:    2px solid #ffffff;
+  border-left:   2px solid #ffffff;
+  border-bottom: 2px solid var(--win-black);
+  border-right:  2px solid var(--win-black);
+  box-shadow:
+    inset -1px -1px 0 var(--win-grey),
+    inset  1px  1px 0 #dfdfdf;
 }
 
 button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 28px rgba(31, 47, 102, 0.45);
-  border-color: rgba(255, 255, 255, 0.24);
+  background: #e8e8e0;
+  transform: none;
+  box-shadow:
+    inset -1px -1px 0 var(--win-grey),
+    inset  1px  1px 0 #dfdfdf;
+}
+
+button:active {
+  border-top:    2px solid var(--win-black);
+  border-left:   2px solid var(--win-black);
+  border-bottom: 2px solid #ffffff;
+  border-right:  2px solid #ffffff;
+  box-shadow:
+    inset  1px  1px 0 var(--win-grey),
+    inset -1px -1px 0 #dfdfdf;
 }
 
 button.secondary {
-  background: linear-gradient(135deg, #1d7b70 0%, #14473f 100%);
+  background: var(--win-bg);
+  color: var(--win-black);
 }
 
 button.ghost {
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: none;
+  background: var(--win-bg);
+  box-shadow:
+    inset -1px -1px 0 var(--win-grey),
+    inset  1px  1px 0 #dfdfdf;
+  border-top:    2px solid #ffffff;
+  border-left:   2px solid #ffffff;
+  border-bottom: 2px solid var(--win-black);
+  border-right:  2px solid var(--win-black);
 }
 
 button:disabled {
-  opacity: 0.7;
+  color: var(--win-grey);
+  opacity: 1;
   cursor: not-allowed;
-  transform: none;
 }
 
+/* ---- Win2k text inputs ---- */
 input,
 select {
   width: 100%;
-  padding: 1rem 1rem;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text);
+  padding: 3px 6px;
+  border-top:    2px solid var(--win-grey);
+  border-left:   2px solid var(--win-grey);
+  border-bottom: 2px solid #ffffff;
+  border-right:  2px solid #ffffff;
+  background: var(--win-white);
+  color: var(--win-black);
   outline: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 0;
+  transition: none;
+  box-shadow: none;
 }
 
 input::placeholder {
-  color: #90a0be;
+  color: var(--win-grey);
 }
 
 input:focus,
 select:focus {
-  border-color: rgba(91, 140, 255, 0.7);
-  box-shadow: 0 0 0 4px rgba(91, 140, 255, 0.14);
+  outline: 1px dotted var(--win-navy);
+  border-color: var(--win-grey);
+  box-shadow: none;
 }
 
+/* =====================
+   APP SHELL + TASKBAR
+   ===================== */
 .app-shell {
   min-height: 100vh;
+  background: var(--win-bg);
 }
 
+/* =====================
+   HEADER / TITLE BAR STYLE
+   ===================== */
 .topbar {
   position: sticky;
   top: 0;
   z-index: 100;
-  backdrop-filter: blur(14px);
-  background: rgba(7, 17, 31, 0.72);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--win-bg);
+  border-bottom: 2px solid var(--win-grey);
+  box-shadow: 0 2px 0 #ffffff inset;
 }
 
 .topbar-inner {
   max-width: 1260px;
   margin: 0 auto;
-  padding: 16px 20px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Title bar row — blue gradient like Win2k window chrome */
+.topbar-titlebar {
+  background: linear-gradient(to right, var(--win-titlebar-start) 0%, var(--win-titlebar-end) 100%);
+  padding: 4px 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 8px;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
 }
 
 .brand-mark {
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, var(--primary), var(--pink));
+  width: 20px;
+  height: 20px;
+  background: var(--win-white);
   display: grid;
   place-items: center;
   font-weight: 800;
-  box-shadow: 0 12px 24px rgba(91, 140, 255, 0.35);
+  font-size: 13px;
+  color: var(--win-navy);
+  border: 1px solid var(--win-grey);
+  border-radius: 0;
+  box-shadow: none;
+  flex-shrink: 0;
 }
 
 .brand-text h1 {
   margin: 0;
-  font-size: 1.2rem;
-  line-height: 1.1;
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: bold;
+  color: var(--win-titlebar-text);
+  letter-spacing: 0;
 }
 
 .brand-text p {
-  margin: 2px 0 0;
-  color: var(--muted);
-  font-size: 0.9rem;
+  display: none; /* hide subtitle in title bar */
+}
+
+/* Win2k window control buttons */
+.win-controls {
+  display: flex;
+  gap: 2px;
+}
+
+.win-btn {
+  width: 18px;
+  height: 16px;
+  min-height: unset;
+  padding: 0;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--win-bg);
+  border-top:    1px solid #ffffff;
+  border-left:   1px solid #ffffff;
+  border-bottom: 1px solid var(--win-black);
+  border-right:  1px solid var(--win-black);
+  box-shadow:
+    inset -1px -1px 0 var(--win-grey),
+    inset  1px  1px 0 #dfdfdf;
+  cursor: pointer;
+  color: var(--win-black);
+}
+
+.win-btn:active {
+  border-top:    1px solid var(--win-black);
+  border-left:   1px solid var(--win-black);
+  border-bottom: 1px solid #ffffff;
+  border-right:  1px solid #ffffff;
+}
+
+/* Menu bar row */
+.topbar-menubar {
+  background: var(--win-bg);
+  padding: 2px 8px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-bottom: 1px solid var(--win-grey);
 }
 
 .topbar-nav {
   display: flex;
-  gap: 10px;
+  gap: 0;
   flex-wrap: wrap;
 }
 
 .nav-chip {
-  padding: 10px 14px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--muted);
-  transition: all 0.2s ease;
+  padding: 3px 8px;
+  border-radius: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--win-black);
+  font-size: 11px;
+  font-family: "Tahoma", "MS Sans Serif", Arial, sans-serif;
+  text-decoration: none;
+  display: inline-block;
+  transition: none;
 }
 
-.nav-chip:hover {
-  color: white;
-  border-color: rgba(91, 140, 255, 0.35);
-  background: rgba(91, 140, 255, 0.1);
+.nav-chip:hover,
+.nav-chip.active {
+  background: var(--win-navy);
+  color: #ffffff;
+  border-color: transparent;
 }
 
+.nav-chip.active {
+  background: var(--win-navy) !important;
+  color: #ffffff !important;
+}
+
+/* =====================
+   PAGE SHELL / CONTENT
+   ===================== */
 .page-shell {
   max-width: 1260px;
   margin: 0 auto;
-  padding: 34px 20px 60px;
+  padding: 12px 10px 40px;
 }
 
+/* =====================
+   HERO — Win2k two-pane window
+   ===================== */
 .hero {
   display: grid;
   grid-template-columns: 1.5fr 1fr;
-  gap: 22px;
+  gap: 10px;
   align-items: stretch;
-  margin-bottom: 24px;
+  margin-bottom: 10px;
 }
 
+/* Win2k panel / window border */
 .hero-panel,
 .side-panel {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 28px;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
+  background: var(--win-bg);
+  border-top:    2px solid #ffffff;
+  border-left:   2px solid #ffffff;
+  border-bottom: 2px solid var(--win-black);
+  border-right:  2px solid var(--win-black);
+  box-shadow:
+    inset -1px -1px 0 var(--win-grey),
+    inset  1px  1px 0 #dfdfdf;
+  border-radius: 0;
 }
 
 .hero-panel {
-  padding: 32px;
+  padding: 0;
   position: relative;
   overflow: hidden;
 }
 
+/* Title bar for hero panel */
 .hero-panel::before {
-  content: "";
-  position: absolute;
-  inset: auto -40px -40px auto;
-  width: 180px;
-  height: 180px;
-  background: radial-gradient(circle, rgba(91, 140, 255, 0.34), transparent 70%);
+  content: "SBOM Finder — Home";
+  display: block;
+  background: linear-gradient(to right, var(--win-titlebar-start) 0%, var(--win-titlebar-end) 100%);
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 11px;
+  padding: 3px 8px;
+  font-family: "Tahoma", "MS Sans Serif", Arial, sans-serif;
   pointer-events: none;
+}
+
+.hero-panel-body {
+  padding: 18px 20px;
 }
 
 .hero-kicker {
   display: inline-block;
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(91, 140, 255, 0.12);
-  color: #cde0ff;
-  font-size: 0.9rem;
-  margin-bottom: 16px;
-  border: 1px solid rgba(91, 140, 255, 0.18);
+  padding: 2px 8px;
+  background: var(--win-navy);
+  color: #ffffff;
+  font-size: 11px;
+  margin-bottom: 10px;
+  border-radius: 0;
+  border: none;
+  font-family: "Tahoma", "MS Sans Serif", Arial, sans-serif;
 }
 
 .hero h2 {
   margin: 0;
-  font-size: clamp(2.3rem, 4vw, 4.2rem);
-  line-height: 1.03;
-  letter-spacing: -0.04em;
+  font-size: 18px;
+  line-height: 1.25;
+  letter-spacing: 0;
+  font-weight: bold;
+  color: var(--win-black);
 }
 
 .hero p {
-  margin: 16px 0 0;
+  margin: 8px 0 0;
   color: var(--muted);
-  font-size: 1.08rem;
+  font-size: 11px;
   max-width: 760px;
+  line-height: 1.5;
 }
 
 .hero-actions {
   display: flex;
-  gap: 12px;
+  gap: 6px;
   flex-wrap: wrap;
-  margin-top: 24px;
+  margin-top: 14px;
 }
 
+/* Side panel */
 .side-panel {
-  padding: 24px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.side-panel-titlebar {
+  background: linear-gradient(to right, var(--win-titlebar-start) 0%, var(--win-titlebar-end) 100%);
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 11px;
+  padding: 3px 8px;
+  font-family: "Tahoma", "MS Sans Serif", Arial, sans-serif;
+}
+
+.side-panel-body {
+  padding: 14px;
 }
 
 .side-panel h3 {
-  margin: 0 0 10px;
-  font-size: 1.15rem;
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--win-black);
 }
 
 .side-panel p {
-  margin: 0 0 20px;
+  margin: 0 0 10px;
   color: var(--muted);
+  font-size: 11px;
 }
 
 .quick-list {
   display: grid;
-  gap: 12px;
+  gap: 6px;
 }
 
 .quick-item {
-  padding: 14px 16px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border);
+  padding: 8px 10px;
+  background: var(--win-white);
+  border-top:    1px solid var(--win-grey);
+  border-left:   1px solid var(--win-grey);
+  border-bottom: 1px solid #ffffff;
+  border-right:  1px solid #ffffff;
 }
 
 .quick-item strong {
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+  font-size: 11px;
+  color: var(--win-black);
 }
 
 .quick-item span {
   color: var(--muted);
-  font-size: 0.95rem;
+  font-size: 11px;
 }
 
+/* =====================
+   SECTION CARDS — Win2k group-box style
+   ===================== */
 .section-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 26px;
-  box-shadow: var(--shadow);
-  padding: 24px;
-  margin-bottom: 24px;
-  backdrop-filter: blur(10px);
+  background: var(--win-bg);
+  border-top:    2px solid #ffffff;
+  border-left:   2px solid #ffffff;
+  border-bottom: 2px solid var(--win-black);
+  border-right:  2px solid var(--win-black);
+  box-shadow:
+    inset -1px -1px 0 var(--win-grey),
+    inset  1px  1px 0 #dfdfdf;
+  border-radius: 0;
+  padding: 0;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.section-card-titlebar {
+  background: linear-gradient(to right, var(--win-titlebar-start) 0%, var(--win-titlebar-end) 100%);
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 11px;
+  padding: 3px 8px;
+  font-family: "Tahoma", "MS Sans Serif", Arial, sans-serif;
+}
+
+.section-card-body {
+  padding: 14px;
 }
 
 .section-title {
-  margin: 0 0 8px;
-  font-size: 1.45rem;
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--win-black);
 }
 
 .section-subtitle {
-  margin: 0 0 20px;
+  margin: 0 0 12px;
   color: var(--muted);
+  font-size: 11px;
 }
 
+/* =====================
+   STATS GRID — metric cards like Win2k info boxes
+   ===================== */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 .metric-card {
-  border-radius: 22px;
-  padding: 22px;
-  color: white;
-  position: relative;
+  background: var(--win-bg);
+  border-top:    2px solid #ffffff;
+  border-left:   2px solid #ffffff;
+  border-bottom: 2px solid var(--win-black);
+  border-right:  2px solid var(--win-black);
+  box-shadow:
+    inset -1px -1px 0 var(--win-grey),
+    inset  1px  1px 0 #dfdfdf;
+  padding: 0;
   overflow: hidden;
-  min-height: 120px;
-  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.22);
+  position: relative;
 }
 
-.metric-card::after {
-  content: "";
-  position: absolute;
-  inset: auto -25px -35px auto;
-  width: 110px;
-  height: 110px;
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 50%;
+.metric-card::after { content: none; }
+
+.metric-card-titlebar {
+  padding: 3px 8px;
+  font-weight: bold;
+  font-size: 10px;
+  color: #ffffff;
+  font-family: "Tahoma", "MS Sans Serif", Arial, sans-serif;
 }
 
-.metric-blue {
-  background: linear-gradient(135deg, #4f7fff, #2747a8);
-}
+.metric-blue  .metric-card-titlebar { background: #000080; }
+.metric-green .metric-card-titlebar { background: #007700; }
+.metric-pink  .metric-card-titlebar { background: #990000; }
+.metric-gold  .metric-card-titlebar { background: #808000; }
 
-.metric-green {
-  background: linear-gradient(135deg, #16c6a0, #0e6f61);
-}
-
-.metric-pink {
-  background: linear-gradient(135deg, #ff63a7, #a33172);
-}
-
-.metric-gold {
-  background: linear-gradient(135deg, #ffb84d, #a96a0f);
+.metric-card-body {
+  padding: 12px 14px;
+  text-align: center;
 }
 
 .metric-card h3 {
   margin: 0;
-  font-size: 2rem;
+  font-size: 28px;
+  font-weight: bold;
+  color: var(--win-black);
+  line-height: 1;
 }
 
 .metric-card p {
-  margin: 10px 0 0;
-  opacity: 0.92;
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 11px;
 }
 
+/* =====================
+   FILTER GRID
+   ===================== */
 .filter-grid {
   display: grid;
   grid-template-columns: 2fr 1fr 1.2fr 1.2fr;
-  gap: 14px;
-  margin-bottom: 16px;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 .actions-row {
   display: flex;
-  gap: 12px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
+/* =====================
+   FEATURE CARDS
+   ===================== */
 .feature-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: 8px;
 }
 
 .feature-card {
-  padding: 22px;
-  border-radius: 22px;
-  background: linear-gradient(180deg, rgba(29, 41, 72, 0.9), rgba(16, 23, 41, 0.96));
-  border: 1px solid var(--border);
-  transition: transform 0.22s ease, border-color 0.22s ease;
+  padding: 0;
+  background: var(--win-bg);
+  border-top:    1px solid #ffffff;
+  border-left:   1px solid #ffffff;
+  border-bottom: 1px solid var(--win-grey);
+  border-right:  1px solid var(--win-grey);
+  transition: none;
+  overflow: hidden;
 }
 
-.feature-card:hover {
-  transform: translateY(-3px);
-  border-color: rgba(91, 140, 255, 0.35);
+.feature-card-titlebar {
+  background: var(--win-silver);
+  padding: 3px 8px;
+  font-weight: bold;
+  font-size: 11px;
+  color: var(--win-black);
+  border-bottom: 1px solid var(--win-grey);
+}
+
+.feature-card-body {
+  padding: 10px;
 }
 
 .feature-card h3 {
-  margin: 0 0 10px;
-  font-size: 1.15rem;
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: bold;
+  color: var(--win-black);
 }
 
 .feature-card p {
   margin: 0;
   color: var(--muted);
+  font-size: 11px;
 }
 
+.feature-card:hover {
+  transform: none;
+  border-color: inherit;
+}
+
+/* =====================
+   ITEM LIST / CARDS
+   ===================== */
 .item-list {
   display: grid;
-  gap: 18px;
+  gap: 8px;
 }
 
 .item-card {
-  background: linear-gradient(180deg, rgba(25, 35, 62, 0.94), rgba(14, 21, 38, 0.96));
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  padding: 24px;
+  background: var(--win-white);
+  border-top:    1px solid #ffffff;
+  border-left:   1px solid #ffffff;
+  border-bottom: 1px solid var(--win-grey);
+  border-right:  1px solid var(--win-grey);
+  border-radius: 0;
+  padding: 0;
   cursor: pointer;
-  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+  transition: none;
+  overflow: hidden;
 }
 
 .item-card:hover {
-  transform: translateY(-3px);
-  border-color: rgba(91, 140, 255, 0.35);
-  box-shadow: 0 22px 38px rgba(0, 0, 0, 0.24);
+  transform: none;
+  box-shadow: none;
+  border-color: var(--win-navy);
+}
+
+.item-card-titlebar {
+  background: var(--win-silver);
+  padding: 3px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--win-grey);
 }
 
 .item-card-header {
   display: flex;
   align-items: start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid var(--win-grey);
+  background: var(--win-bg);
 }
 
 .item-card h3 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--win-black);
 }
 
 .badge {
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(91, 140, 255, 0.15);
-  color: #dce8ff;
-  border: 1px solid rgba(91, 140, 255, 0.24);
-  font-size: 0.86rem;
+  padding: 2px 8px;
+  border-radius: 0;
+  background: var(--win-navy);
+  color: #ffffff;
+  border: none;
+  font-size: 10px;
   white-space: nowrap;
+  font-family: "Tahoma", "MS Sans Serif", Arial, sans-serif;
 }
 
 .item-card p.desc {
   color: var(--muted);
-  margin: 12px 0 0;
+  margin: 0;
+  font-size: 11px;
+  padding: 8px 10px;
 }
 
 .item-meta {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 18px;
+  gap: 0;
+  border-top: 1px solid var(--win-grey);
 }
 
 .meta-pill {
-  border-radius: 18px;
-  padding: 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border);
+  padding: 8px 10px;
+  background: var(--win-bg);
+  border-right: 1px solid var(--win-grey);
+}
+
+.meta-pill:last-child {
+  border-right: none;
 }
 
 .meta-pill span {
   display: block;
-  color: var(--muted);
-  font-size: 0.84rem;
-  margin-bottom: 4px;
+  color: var(--win-grey);
+  font-size: 10px;
+  margin-bottom: 2px;
+  text-transform: uppercase;
 }
 
+.meta-pill strong {
+  font-size: 11px;
+  color: var(--win-black);
+}
+
+/* =====================
+   EMPTY STATE
+   ===================== */
 .empty-state {
   text-align: center;
-  padding: 40px 20px;
-  border-radius: 20px;
-  border: 1px dashed rgba(255, 255, 255, 0.14);
-  color: var(--muted);
+  padding: 30px 20px;
+  border: 1px dashed var(--win-grey);
+  color: var(--win-grey);
+  background: var(--win-white);
+  font-size: 11px;
 }
 
+/* =====================
+   INFO / ERROR BANNERS
+   ===================== */
+.info-banner {
+  padding: 6px 10px;
+  background: #dfefff;
+  color: var(--win-navy);
+  border: 1px solid var(--win-navy);
+  font-size: 11px;
+}
+
+.error-text {
+  color: var(--danger);
+  font-weight: bold;
+  font-size: 11px;
+}
+
+/* =====================
+   BACK BUTTON
+   ===================== */
 .back-btn {
-  margin-bottom: 18px;
+  margin-bottom: 10px;
 }
 
+/* =====================
+   DETAILS / COMPARE / ETC.
+   ===================== */
 .details-grid {
   display: grid;
   grid-template-columns: 1.1fr 1.3fr;
-  gap: 22px;
+  gap: 10px;
 }
 
 .components-grid {
   display: grid;
-  gap: 14px;
+  gap: 8px;
 }
 
 .component-card {
-  border-radius: 20px;
-  padding: 18px;
-  background: linear-gradient(180deg, rgba(25, 35, 62, 0.92), rgba(15, 21, 38, 0.96));
-  border: 1px solid var(--border);
+  border-radius: 0;
+  padding: 10px;
+  background: var(--win-white);
+  border-top:    1px solid #ffffff;
+  border-left:   1px solid #ffffff;
+  border-bottom: 1px solid var(--win-grey);
+  border-right:  1px solid var(--win-grey);
+  font-size: 11px;
 }
 
 .compare-selection-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 8px;
 }
 
 .compare-option {
-  padding: 18px;
-  border-radius: 20px;
-  background: linear-gradient(180deg, rgba(25, 35, 62, 0.92), rgba(15, 21, 38, 0.96));
-  border: 1px solid var(--border);
-  transition: border-color 0.2s ease, transform 0.2s ease;
+  padding: 10px;
+  border-radius: 0;
+  background: var(--win-white);
+  border-top:    1px solid #ffffff;
+  border-left:   1px solid #ffffff;
+  border-bottom: 1px solid var(--win-grey);
+  border-right:  1px solid var(--win-grey);
+  transition: none;
+  font-size: 11px;
 }
 
 .compare-option:hover {
-  transform: translateY(-2px);
-  border-color: rgba(91, 140, 255, 0.35);
+  transform: none;
+  border-color: var(--win-navy);
 }
 
 .table-wrap {
   overflow-x: auto;
-  border-radius: 20px;
-  border: 1px solid var(--border);
+  border-radius: 0;
+  border: 1px solid var(--win-grey);
 }
 
 .compare-table {
   width: 100%;
   border-collapse: collapse;
-  background: rgba(14, 21, 38, 0.96);
+  background: var(--win-white);
+  font-size: 11px;
 }
 
 .compare-table th,
 .compare-table td {
-  padding: 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--win-grey);
   text-align: left;
   vertical-align: top;
 }
 
 .compare-table th {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--win-silver);
+  font-weight: bold;
+  border-bottom: 2px solid var(--win-grey);
 }
 
-.tag-common {
-  color: #79f2ae;
-  font-weight: 700;
-}
-
-.tag-partial {
-  color: #ffd166;
-  font-weight: 700;
-}
-
-.tag-unique {
-  color: #ff9c9c;
-  font-weight: 700;
-}
-
-.info-banner {
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: rgba(91, 140, 255, 0.1);
-  color: #dce8ff;
-  border: 1px solid rgba(91, 140, 255, 0.2);
-}
-
-.error-text {
-  color: var(--danger);
-  font-weight: 700;
-}
+.tag-common  { color: #007700; font-weight: bold; }
+.tag-partial { color: #808000; font-weight: bold; }
+.tag-unique  { color: #cc0000; font-weight: bold; }
 
 .upload-box {
   max-width: 780px;
   margin: 0 auto;
 }
 
+/* =====================
+   WIN2K STATUS BAR
+   ===================== */
+.win-statusbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--win-bg);
+  border-top: 2px solid #ffffff;
+  box-shadow: inset 0 1px 0 var(--win-grey);
+  display: flex;
+  align-items: center;
+  padding: 2px 10px;
+  gap: 8px;
+  font-size: 11px;
+  z-index: 200;
+}
+
+.status-pane {
+  border-top:    1px solid var(--win-grey);
+  border-left:   1px solid var(--win-grey);
+  border-bottom: 1px solid #ffffff;
+  border-right:  1px solid #ffffff;
+  padding: 1px 8px;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--win-black);
+}
+
+/* Add bottom padding so content doesn't hide behind status bar */
+.page-shell {
+  padding-bottom: 30px;
+}
+
+/* =====================
+   RESPONSIVE
+   ===================== */
 @media (max-width: 1100px) {
   .hero,
   .details-grid,
@@ -608,15 +925,5 @@ select:focus {
   .topbar-inner {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .hero-panel,
-  .side-panel,
-  .section-card {
-    border-radius: 22px;
-  }
-
-  .hero-panel {
-    padding: 24px;
   }
 }
