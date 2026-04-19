@@ -1,13 +1,26 @@
-from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Text
+from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Text, Float
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, nullable=False, index=True)
+    email = Column(String, unique=True, nullable=False, index=True)
+    hashed_password = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    items = relationship("Item", back_populates="owner_user")
+    tracked_products = relationship("TrackedProduct", back_populates="owner_user")
+
 class Item(Base):
     __tablename__ = "items"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     name = Column(String, nullable=False)
     item_type = Column(String, nullable=False)   # device or application
     category = Column(String, nullable=True)
@@ -22,6 +35,7 @@ class Item(Base):
     source_name = Column(String, nullable=True)
 
     components = relationship("ItemComponent", back_populates="item")
+    owner_user = relationship("User", back_populates="items")
 
 
 class Component(Base):
@@ -50,6 +64,7 @@ class TrackedProduct(Base):
     __tablename__ = "tracked_products"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     name = Column(String, nullable=False)
     product_type = Column(String, nullable=True)
     vendor = Column(String, nullable=True)
@@ -59,6 +74,7 @@ class TrackedProduct(Base):
     last_checked = Column(DateTime, nullable=True)
 
     sources = relationship("SourceRecord", back_populates="tracked_product")
+    owner_user = relationship("User", back_populates="tracked_products")
 
 
 class SourceRecord(Base):
