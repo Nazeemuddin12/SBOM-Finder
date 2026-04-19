@@ -79,13 +79,27 @@ def read_root():
 
 
 @app.get("/items", response_model=list[ItemResponse])
-def get_items(db: Session = Depends(get_db)):
-    return db.query(models.Item).all()
+def get_items(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    return (
+        db.query(models.Item)
+        .filter(models.Item.user_id == current_user.id)
+        .all()
+    )
 
 
 @app.get("/items/{item_id}", response_model=ItemDetailResponse)
-def get_item_detail(item_id: int, db: Session = Depends(get_db)):
-    item = db.query(models.Item).filter(models.Item.id == item_id).first()
+def get_item_detail(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    item = db.query(models.Item).filter(
+    models.Item.id == item_id,
+    models.Item.user_id == current_user.id,
+).first()
 
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
@@ -426,19 +440,21 @@ def reverse_lookup(component_name: str, db: Session = Depends(get_db)):
 
 
 @app.get("/stats", response_model=StatsResponse)
-def get_stats(db: Session = Depends(get_db)):
-    total_items = db.query(models.Item).count()
-    total_devices = db.query(models.Item).filter(models.Item.item_type == "device").count()
-    total_applications = db.query(models.Item).filter(models.Item.item_type == "application").count()
-    total_components = db.query(models.Component).count()
-    total_tracked_products = db.query(models.TrackedProduct).count()
-
+def get_stats(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    user_items = db.query(models.Item).filter(models.Item.user_id == current_user.id)
     return {
-        "total_items": total_items,
-        "total_devices": total_devices,
-        "total_applications": total_applications,
-        "total_components": total_components,
-        "total_tracked_products": total_tracked_products,
+        "total_items": user_items.count(),
+        "total_devices": user_items.filter(models.Item.item_type == "device").count(),
+        "total_applications": user_items.filter(models.Item.item_type == "application").count(),
+        "total_components": db.query(models.Component).count(),
+        "total_tracked_products": db.query(models.TrackedProduct).filter(
+            models.TrackedProduct.user_id == current_user.id
+        ).count(),
+        "total_ai_discovered": user_items.filter(models.Item.source_format == "ai_discovered").count(),
+        "total_users": db.query(models.User).count(),
     }
 
 
@@ -524,53 +540,3 @@ def create_tracked_product(payload: TrackedProductCreate, db: Session = Depends(
         db.refresh(tracked_product)
 
     return tracked_product
-
-@app.post("/auth/register", response_model=TokenResponse)
-def register(payload: UserCreate, db: Session = Depends(get_db)):
-    if db.query(models.User).filter(models.User.username == payload.username).first():
-        raise HTTPException(status_code=400, detail="Username already taken")
-    if db.query(models.User).filter(models.User.email == payload.email).first():
-        raise HTTPException(status_code=400, detail="Email already registered")
-
-    user = models.User(
-        username=payload.username,
-        email=payload.email,
-        hashed_password=hash_password(payload.password),
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-
-    token = create_access_token({"sub": str(user.id)})
-    return TokenResponse(
-        access_token=token,
-        user=UserResponse(
-            id=user.id,
-            username=user.username,
-            email=user.email,
-            created_at=user.created_at,
-        ),
-    )
-
-
-@app.post("/auth/login", response_model=TokenResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.username == payload.username).first()
-    if not user or not verify_password(payload.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Invalid username or password")
-
-    token = create_access_token({"sub": str(user.id)})
-    return TokenResponse(
-        access_token=token,
-        user=UserResponse(
-            id=user.id,
-            username=user.username,
-            email=user.email,
-            created_at=user.created_at,
-        ),
-    )
-
-
-@app.get("/auth/me", response_model=UserResponse)
-def get_me(current_user: models.User = Depends(get_current_user)):
-    return current_user
