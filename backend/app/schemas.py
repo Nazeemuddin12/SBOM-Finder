@@ -1,6 +1,31 @@
 from datetime import datetime
 from pydantic import BaseModel
 
+class UserCreate(BaseModel):
+    username: str
+    email: str
+    password: str
+
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    email: str
+    created_at: datetime | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
 
 class ItemResponse(BaseModel):
     id: int
@@ -73,6 +98,8 @@ class StatsResponse(BaseModel):
     total_applications: int
     total_components: int
     total_tracked_products: int
+    total_ai_discovered: int
+    total_users: int
 
 
 class MultiCompareResponse(BaseModel):
