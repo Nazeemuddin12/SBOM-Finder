@@ -20,6 +20,13 @@ from app.schemas import (
     SearchWithExternalResponse,
     ExternalItemCreate,
 )
+from app.auth import (
+    hash_password, verify_password, create_access_token,
+    get_current_user, get_db,
+)
+from app.schemas import (
+    UserCreate, UserResponse, LoginRequest, TokenResponse,
+)
 
 Base.metadata.create_all(bind=engine)
 
@@ -34,12 +41,6 @@ app.add_middleware(
 )
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 def build_item_detail(item):
@@ -523,3 +524,53 @@ def create_tracked_product(payload: TrackedProductCreate, db: Session = Depends(
         db.refresh(tracked_product)
 
     return tracked_product
+
+@app.post("/auth/register", response_model=TokenResponse)
+def register(payload: UserCreate, db: Session = Depends(get_db)):
+    if db.query(models.User).filter(models.User.username == payload.username).first():
+        raise HTTPException(status_code=400, detail="Username already taken")
+    if db.query(models.User).filter(models.User.email == payload.email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    user = models.User(
+        username=payload.username,
+        email=payload.email,
+        hashed_password=hash_password(payload.password),
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    token = create_access_token({"sub": str(user.id)})
+    return TokenResponse(
+        access_token=token,
+        user=UserResponse(
+            id=user.id,
+            username=user.username,
+            email=user.email,
+            created_at=user.created_at,
+        ),
+    )
+
+
+@app.post("/auth/login", response_model=TokenResponse)
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.username == payload.username).first()
+    if not user or not verify_password(payload.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    token = create_access_token({"sub": str(user.id)})
+    return TokenResponse(
+        access_token=token,
+        user=UserResponse(
+            id=user.id,
+            username=user.username,
+            email=user.email,
+            created_at=user.created_at,
+        ),
+    )
+
+
+@app.get("/auth/me", response_model=UserResponse)
+def get_me(current_user: models.User = Depends(get_current_user)):
+    return current_user
