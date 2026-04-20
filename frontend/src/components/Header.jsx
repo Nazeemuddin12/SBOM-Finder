@@ -1,52 +1,37 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/Authcontext";
 
+export default function Header() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
-function Header() {
-  const location = useLocation();
-
-  const links = [
-    { label: "Home", path: "/" },
-    { label: "Compare", path: "/compare" },
-    { label: "Reverse Lookup", path: "/reverse-lookup" },
-    { label: "Tracked", path: "/tracked-products" },
-    { label: "Stats", path: "/stats" },
-    { label: "Import", path: "/import" },
-  ];
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
   return (
-    <header className="topbar">
-      <div className="topbar-inner">
-        <div className="brand">
-          <div className="brand-mark">S</div>
-          <div className="brand-text">
-            <h1>SBOM Finder</h1>
-            <p>Software Bill of Materials Explorer</p>
-          </div>
-        </div>
+    <header className="app-header">
+      <Link to="/" className="header-brand">
+        <span className="header-logo-text">SBOM Finder</span>
+        <span className="header-badge">Beta</span>
+      </Link>
 
-        <nav className="topbar-nav">
-          {links.map((link) => (
-            <Link
-              key={link.path}
-              to={link.path}
-              className="nav-chip"
-              style={
-                location.pathname === link.path
-                  ? {
-                      color: "white",
-                      borderColor: "rgba(91, 140, 255, 0.35)",
-                      background: "rgba(91, 140, 255, 0.12)",
-                    }
-                  : {}
-              }
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
+      <nav className="header-nav">
+        <Link to="/">Dashboard</Link>
+        <Link to="/compare">Compare</Link>
+        <Link to="/reverse-lookup">Reverse Lookup</Link>
+        <Link to="/import">Import</Link>
+        <Link to="/stats">Stats</Link>
+        <Link to="/tracked-products">Tracked</Link>
+      </nav>
+
+      <div className="header-user">
+        <span className="header-username">{user?.username}</span>
+        <button className="ghost header-logout" onClick={handleLogout}>
+          Sign out
+        </button>
       </div>
     </header>
   );
 }
-
-export default Header;
