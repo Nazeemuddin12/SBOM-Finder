@@ -164,6 +164,26 @@ def get_item_detail(
         raise HTTPException(status_code=404, detail="Item not found")
     return build_item_detail(item)
 
+@app.delete("/items/{item_id}")
+def delete_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    item = db.query(models.Item).filter(
+        models.Item.id == item_id,
+        models.Item.user_id == current_user.id,
+    ).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    db.query(models.ItemComponent).filter(
+        models.ItemComponent.item_id == item_id
+    ).delete()
+
+    db.delete(item)
+    db.commit()
+    return {"message": "Item deleted successfully"}
 
 # ---------------------------------------------------------------------------
 # Search
@@ -436,6 +456,41 @@ def get_stats(
         ).count(),
         "total_users": db.query(models.User).count(),
     }
+
+@app.get("/components-list")
+def get_all_components(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    # Get components that belong to this user's items
+    user_item_ids = [
+        item.id for item in
+        db.query(models.Item).filter(models.Item.user_id == current_user.id).all()
+    ]
+    
+    if not user_item_ids:
+        return []
+
+    component_ids = db.query(models.ItemComponent.component_id).filter(
+        models.ItemComponent.item_id.in_(user_item_ids)
+    ).distinct().all()
+
+    component_id_list = [c[0] for c in component_ids]
+
+    components = db.query(models.Component).filter(
+        models.Component.id.in_(component_id_list)
+    ).all()
+
+    return [
+        {
+            "id": c.id,
+            "component_name": c.component_name,
+            "version": c.version,
+            "supplier": c.supplier,
+            "license": c.license,
+        }
+        for c in components
+    ]
 
 
 # ---------------------------------------------------------------------------

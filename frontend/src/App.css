@@ -697,3 +697,8 @@ select option {
   color: var(--text);
   margin: 0 0 8px;
 }
+
+.metric-active {
+  transform: scale(1.03);
+  box-shadow: 0 0 0 2px rgba(91, 140, 255, 0.5);
+}
