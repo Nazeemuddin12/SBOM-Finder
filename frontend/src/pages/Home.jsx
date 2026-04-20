@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { API_BASE_URL } from "../config";
+import { apiFetch } from "../api";
 
 function Home() {
   const navigate = useNavigate();
@@ -17,20 +17,23 @@ function Home() {
   const [category, setCategory] = useState("");
 
   const fetchAllItems = async () => {
-    const res = await fetch(`${API_BASE_URL}/items`);
+    const res = await apiFetch("/items");
     if (!res.ok) throw new Error("Failed to fetch items");
     return res.json();
   };
 
   const fetchStats = async () => {
-    const res = await fetch(`${API_BASE_URL}/stats`);
+    const res = await apiFetch("/stats");
     if (!res.ok) throw new Error("Failed to fetch stats");
     return res.json();
   };
 
   const loadDashboard = async () => {
     try {
-      const [itemsData, statsData] = await Promise.all([fetchAllItems(), fetchStats()]);
+      const [itemsData, statsData] = await Promise.all([
+        fetchAllItems(),
+        fetchStats(),
+      ]);
       setItems(itemsData);
       setStats(statsData);
       setExternalResults([]);
@@ -59,10 +62,10 @@ function Home() {
       const hasSearchTerm = searchName.trim().length > 0;
 
       const url = hasSearchTerm
-        ? `${API_BASE_URL}/search-smart?${query}`
-        : `${API_BASE_URL}/items`;
+        ? `/search-smart?${query}`
+        : `/items`;
 
-      const res = await fetch(url);
+      const res = await apiFetch(url);
       if (!res.ok) throw new Error("Failed to search items");
 
       const data = await res.json();
@@ -97,186 +100,101 @@ function Home() {
       setError("");
       setSuccessMessage("");
 
-      const payload = {
-        name: item.full_name || item.name || "External Result",
-        product_type: "application",
-        vendor: item.owner || "Unknown",
-        notes: `Tracked from external ${item.source || "public"} suggestion: ${item.url || "N/A"}`,
-      };
-
-      const res = await fetch(`${API_BASE_URL}/tracked-products`, {
+      const res = await apiFetch("/tracked-products", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          name: item.full_name || item.name,
+          product_type: "application",
+          vendor: item.owner || null,
+          notes: item.description || null,
+        }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.detail || "Failed to track external result");
-      }
-
-      const statsRes = await fetch(`${API_BASE_URL}/stats`);
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        setStats(statsData);
-      }
-
-      setSuccessMessage(`Tracked successfully: ${data.name}`);
+      if (!res.ok) throw new Error("Failed to track product");
+      setSuccessMessage(`"${item.name}" added to tracked products.`);
     } catch (err) {
-      console.error(err);
-      setError(err.message || "Failed to track item");
+      setError(err.message);
     }
   };
 
-  const handleOpenExternalInApp = async (item) => {
+  const handleImportExternal = async (item) => {
     try {
       setError("");
       setSuccessMessage("");
 
-      const payload = {
-        name: item.name || "External Result",
-        full_name: item.full_name || item.name || "External Result",
-        url: item.url || null,
-        description: item.description || "Imported from external suggestion.",
-        owner: item.owner || "Unknown",
-        stars: item.stars ?? null,
-        source: item.source || "GitHub",
-        item_type: "application",
-      };
-
-      const res = await fetch(`${API_BASE_URL}/external-items/import`, {
+      const res = await apiFetch("/external-items/import", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          name: item.name,
+          full_name: item.full_name,
+          url: item.url,
+          description: item.description,
+          owner: item.owner,
+          stars: item.stars,
+          source: item.source,
+          item_type: "application",
+        }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.detail || "Failed to import external result");
-      }
-
-      const itemsRes = await fetch(`${API_BASE_URL}/items`);
-      if (itemsRes.ok) {
-        const itemsData = await itemsRes.json();
-        setItems(itemsData);
-      }
-
-      const statsRes = await fetch(`${API_BASE_URL}/stats`);
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        setStats(statsData);
-      }
-
-      navigate(`/item/${data.id}`);
+      if (!res.ok) throw new Error("Failed to import item");
+      setSuccessMessage(`"${item.name}" imported to workspace.`);
+      await loadDashboard();
     } catch (err) {
-      console.error(err);
-      setError(err.message || "Failed to open external result in app");
+      setError(err.message);
     }
   };
 
-  const summary = useMemo(() => {
-    if (!stats) return "Loading your SBOM workspace...";
-    return `${stats.total_items} indexed items with ${stats.total_components} tracked components across applications and devices.`;
-  }, [stats]);
-
   return (
     <div className="page-shell">
-      <section className="hero">
-        <div className="hero-panel">
-          <span className="hero-kicker">Unified SBOM Intelligence</span>
-          <h2>Explore, Compare, and Trace Software Materials</h2>
-          <p>
-            SBOM Finder helps you browse imported devices and applications, inspect their
-            software bill of materials, compare up to four items side by side, and run
-            reverse lookups to identify where specific components appear.
-          </p>
-
-          <div className="hero-actions">
-            <button onClick={() => navigate("/import")}>Import SBOM</button>
-            <button className="secondary" onClick={() => navigate("/compare")}>
-              Compare Items
-            </button>
-            <button className="ghost" onClick={() => navigate("/reverse-lookup")}>
-              Reverse Lookup
-            </button>
-          </div>
-        </div>
-
-        <div className="side-panel">
-          <h3>Workspace Summary</h3>
-          <p>{summary}</p>
-
-          <div className="quick-list">
-            <div className="quick-item">
-              <strong>Search and Filter</strong>
-              <span>Explore by item name, category, manufacturer, and type.</span>
-            </div>
-            <div className="quick-item">
-              <strong>Comparison Engine</strong>
-              <span>Highlight common, partial, and unique dependencies.</span>
-            </div>
-            <div className="quick-item">
-              <strong>Reverse Lookup</strong>
-              <span>Find which products include a given library or component.</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
+      {/* Stats bar */}
       {stats && (
-        <section className="stats-grid" style={{ marginBottom: "24px" }}>
-          <div className="metric-card metric-blue">
-            <h3>{stats.total_items}</h3>
-            <p>Total Items</p>
+        <section className="stats-bar">
+          <div className="stat-pill">
+            <span className="stat-num">{stats.total_items}</span>
+            <span className="stat-label">Total Items</span>
           </div>
-          <div className="metric-card metric-green">
-            <h3>{stats.total_applications}</h3>
-            <p>Applications</p>
+          <div className="stat-pill">
+            <span className="stat-num">{stats.total_applications}</span>
+            <span className="stat-label">Applications</span>
           </div>
-          <div className="metric-card metric-pink">
-            <h3>{stats.total_devices}</h3>
-            <p>Devices</p>
+          <div className="stat-pill">
+            <span className="stat-num">{stats.total_devices}</span>
+            <span className="stat-label">Devices</span>
           </div>
-          <div className="metric-card metric-gold">
-            <h3>{stats.total_components}</h3>
-            <p>Tracked Components</p>
+          <div className="stat-pill">
+            <span className="stat-num">{stats.total_components}</span>
+            <span className="stat-label">Components</span>
+          </div>
+          <div className="stat-pill">
+            <span className="stat-num">{stats.total_tracked_products}</span>
+            <span className="stat-label">Tracked</span>
           </div>
         </section>
       )}
 
+      {/* Search */}
       <section className="section-card">
-        <h2 className="section-title">Search & Explore</h2>
-        <p className="section-subtitle">
-          Use partial-match search and filters to locate applications and devices quickly.
-        </p>
+        <h2 className="section-title">Search & Filter</h2>
 
-        <div className="filter-grid">
+        <div className="search-grid">
           <input
             type="text"
-            placeholder="Search by name, vendor, category, OS..."
+            placeholder="Search by name, keyword..."
             value={searchName}
             onChange={(e) => setSearchName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
           />
-
           <select value={itemType} onChange={(e) => setItemType(e.target.value)}>
             <option value="">All Types</option>
             <option value="application">Application</option>
             <option value="device">Device</option>
           </select>
-
           <input
             type="text"
             placeholder="Manufacturer"
             value={manufacturer}
             onChange={(e) => setManufacturer(e.target.value)}
           />
-
           <input
             type="text"
             placeholder="Category"
@@ -285,60 +203,32 @@ function Home() {
           />
         </div>
 
-        <div className="actions-row">
+        <div className="actions-row" style={{ marginTop: "14px" }}>
           <button onClick={handleSearch}>Search</button>
           <button className="ghost" onClick={handleReset}>Reset</button>
-          <button className="secondary" onClick={() => navigate("/stats")}>View Stats</button>
-          <button className="ghost" onClick={() => navigate("/tracked-products")}>Tracked Products</button>
+          <button className="ghost" onClick={() => navigate("/import")}>
+            + Import SBOM
+          </button>
         </div>
 
+        {error && <p className="error-text" style={{ marginTop: "12px" }}>{error}</p>}
         {successMessage && (
-          <div className="info-banner" style={{ marginTop: "16px" }}>
+          <p style={{ color: "var(--success)", marginTop: "12px", fontSize: "0.9rem" }}>
             {successMessage}
-          </div>
-        )}
-
-        {error && (
-          <p className="error-text" style={{ marginTop: "16px" }}>
-            Error: {error}
           </p>
         )}
       </section>
 
-      <section className="section-card">
-        <h2 className="section-title">Platform Capabilities</h2>
-        <p className="section-subtitle">
-          A build-upon alpha focused on visibility, comparison, and component tracing.
-        </p>
-
-        <div className="feature-grid">
-          <div className="feature-card">
-            <h3>Unified Device + App View</h3>
-            <p>One searchable interface for imported devices and applications.</p>
-          </div>
-          <div className="feature-card">
-            <h3>Side-by-Side Comparison</h3>
-            <p>Compare up to four items and inspect overlap across their SBOM contents.</p>
-          </div>
-          <div className="feature-card">
-            <h3>Reverse Component Lookup</h3>
-            <p>Trace where a software material appears across multiple indexed products.</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="section-card">
-        <h2 className="section-title">Indexed Items</h2>
-        <p className="section-subtitle">
-          Select any item to open its detailed SBOM record and component list.
-        </p>
-
-        {!error && items.length === 0 ? (
-          <div className="empty-state">
-            No items are available yet. Import CycloneDX or SPDX files to populate the dashboard.
-          </div>
-        ) : (
-          <div className="item-list">
+      {/* Local results */}
+      {items.length > 0 && (
+        <section className="section-card">
+          <h2 className="section-title">
+            Items
+            <span style={{ fontSize: "13px", fontWeight: 400, color: "var(--muted)", marginLeft: "10px" }}>
+              {items.length} found
+            </span>
+          </h2>
+          <div className="items-grid">
             {items.map((item) => (
               <div
                 key={item.id}
@@ -346,95 +236,68 @@ function Home() {
                 onClick={() => navigate(`/item/${item.id}`)}
               >
                 <div className="item-card-header">
-                  <h3>{item.name}</h3>
-                  <span className="badge">{item.item_type || "N/A"}</span>
+                  <span className="item-name">{item.name}</span>
+                  <span className={`item-type-badge ${item.item_type}`}>
+                    {item.item_type}
+                  </span>
                 </div>
-
-                <p className="desc">
-                  {item.description || "SBOM record available for detailed inspection and comparison."}
+                <p className="item-meta">
+                  {item.manufacturer || "Unknown manufacturer"} •{" "}
+                  {item.category || "Uncategorized"}
                 </p>
-
-                <div className="item-meta">
-                  <div className="meta-pill">
-                    <span>Manufacturer</span>
-                    <strong>{item.manufacturer || "N/A"}</strong>
-                  </div>
-                  <div className="meta-pill">
-                    <span>Category</span>
-                    <strong>{item.category || "N/A"}</strong>
-                  </div>
-                  <div className="meta-pill">
-                    <span>Operating System</span>
-                    <strong>{item.operating_system || "N/A"}</strong>
-                  </div>
-                  <div className="meta-pill">
-                    <span>Source Format</span>
-                    <strong>{item.source_format || "N/A"}</strong>
-                  </div>
-                </div>
+                {item.version && (
+                  <p className="item-version">v{item.version}</p>
+                )}
+                <p className="item-source">
+                  Source: {item.source_format || "unknown"}
+                </p>
               </div>
             ))}
           </div>
-        )}
-      </section>
+        </section>
+      )}
 
+      {items.length === 0 && !error && (
+        <section className="section-card">
+          <p style={{ color: "var(--muted)", textAlign: "center", padding: "2rem 0" }}>
+            No items yet. Import an SBOM file to get started.
+          </p>
+        </section>
+      )}
+
+      {/* External results */}
       {externalResults.length > 0 && (
         <section className="section-card">
           <h2 className="section-title">External Suggestions</h2>
           <p className="section-subtitle">
-            No local SBOM match was found, so these public repository suggestions were retrieved as possible related sources.
+            No local results found. Here are suggestions from GitHub.
           </p>
-
-          <div className="item-list">
-            {externalResults.map((item, index) => (
-              <div key={index} className="item-card">
+          <div className="items-grid">
+            {externalResults.map((item, i) => (
+              <div key={i} className="item-card external">
                 <div className="item-card-header">
-                  <h3>{item.full_name || item.name || "Unknown Result"}</h3>
-                  <span className="badge">{item.source || "External"}</span>
+                  <span className="item-name">{item.name}</span>
+                  <span className="item-type-badge application">external</span>
                 </div>
-
-                <p className="desc">
-                  {item.description || "No description available."}
-                </p>
-
-                <div className="item-meta">
-                  <div className="meta-pill">
-                    <span>Owner</span>
-                    <strong>{item.owner || "N/A"}</strong>
-                  </div>
-                  <div className="meta-pill">
-                    <span>Stars</span>
-                    <strong>{item.stars ?? "N/A"}</strong>
-                  </div>
-                  <div className="meta-pill">
-                    <span>Source</span>
-                    <strong>{item.source || "N/A"}</strong>
-                  </div>
-                  <div className="meta-pill">
-                    <span>Link</span>
-                    <strong>
-                      {item.url ? (
-                        <a
-                          href={item.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          Open Source
-                        </a>
-                      ) : (
-                        "N/A"
-                      )}
-                    </strong>
-                  </div>
-                </div>
-
-                <div className="actions-row" style={{ marginTop: "18px" }}>
-                  <button onClick={() => handleOpenExternalInApp(item)}>
-                    Open in App
+                <p className="item-meta">{item.owner} • {item.stars} stars</p>
+                {item.description && (
+                  <p className="item-version" style={{ fontStyle: "italic" }}>
+                    {item.description}
+                  </p>
+                )}
+                <div className="actions-row" style={{ marginTop: "10px", gap: "8px" }}>
+                  <button
+                    style={{ fontSize: "12px", padding: "5px 10px" }}
+                    onClick={(e) => { e.stopPropagation(); handleImportExternal(item); }}
+                  >
+                    Import
                   </button>
-                  <button className="secondary" onClick={() => handleTrackExternal(item)}>
-                    Track This Result
+                  <button
+                    className="ghost"
+                    style={{ fontSize: "12px", padding: "5px 10px" }}
+                    onClick={(e) => { e.stopPropagation(); handleTrackExternal(item); }}
+                  >
+                    Track
                   </button>
                 </div>
               </div>

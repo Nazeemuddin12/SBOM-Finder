@@ -4,3 +4,6 @@ sqlalchemy
 pydantic
 python-multipart
 requests
+python-jose[cryptography]
+passlib[bcrypt]
+rapidfuzz
