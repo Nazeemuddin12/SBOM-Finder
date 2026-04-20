@@ -1,11 +1,8 @@
 from datetime import datetime
-
 from app.database import SessionLocal, engine, Base
 from app.models import Item, Component, ItemComponent, TrackedProduct, SourceRecord
 
-
 Base.metadata.create_all(bind=engine)
-
 
 demo_items = [
     {
@@ -118,14 +115,13 @@ demo_items = [
     },
 ]
 
-
 demo_tracked_products = [
     {
         "name": "grafana/grafana",
         "product_type": "application",
         "vendor": "grafana",
         "status": "partial",
-        "notes": "Tracked from external GitHub suggestion: https://github.com/grafana/grafana",
+        "notes": "Tracked from external GitHub suggestion.",
         "created_at": datetime.utcnow(),
         "sources": [
             {
@@ -142,7 +138,7 @@ demo_tracked_products = [
         "product_type": "application",
         "vendor": "kubernetes",
         "status": "partial",
-        "notes": "Tracked from external GitHub suggestion: https://github.com/kubernetes/kubernetes",
+        "notes": "Tracked from external GitHub suggestion.",
         "created_at": datetime.utcnow(),
         "sources": [
             {
@@ -160,12 +156,14 @@ demo_tracked_products = [
 def get_or_create_component(db, name, version, supplier, license_name):
     existing = (
         db.query(Component)
-        .filter(Component.component_name == name, Component.version == version)
+        .filter(
+            Component.component_name == name,
+            Component.version == version,
+        )
         .first()
     )
     if existing:
         return existing
-
     component = Component(
         component_name=name,
         version=version,
@@ -192,18 +190,22 @@ def link_item_component(db, item_id, component_id):
         db.commit()
 
 
-def seed_items(db):
+def seed_items(db, user_id=1):
     for item_data in demo_items:
         existing_item = (
             db.query(Item)
-            .filter(Item.name == item_data["name"], Item.source_format == "seed")
+            .filter(
+                Item.name == item_data["name"],
+                Item.source_format == "seed",
+                Item.user_id == user_id,
+            )
             .first()
         )
-
         if existing_item:
             item = existing_item
         else:
             item = Item(
+                user_id=user_id,
                 name=item_data["name"],
                 item_type=item_data["item_type"],
                 category=item_data["category"],
@@ -227,18 +229,21 @@ def seed_items(db):
             link_item_component(db, item.id, component.id)
 
 
-def seed_tracked_products(db):
+def seed_tracked_products(db, user_id=1):
     for tracked_data in demo_tracked_products:
         existing_tracked = (
             db.query(TrackedProduct)
-            .filter(TrackedProduct.name == tracked_data["name"])
+            .filter(
+                TrackedProduct.name == tracked_data["name"],
+                TrackedProduct.user_id == user_id,
+            )
             .first()
         )
-
         if existing_tracked:
             tracked_product = existing_tracked
         else:
             tracked_product = TrackedProduct(
+                user_id=user_id,
                 name=tracked_data["name"],
                 product_type=tracked_data["product_type"],
                 vendor=tracked_data["vendor"],
@@ -259,7 +264,6 @@ def seed_tracked_products(db):
                 )
                 .first()
             )
-
             if not existing_source:
                 source = SourceRecord(
                     tracked_product_id=tracked_product.id,
@@ -274,12 +278,12 @@ def seed_tracked_products(db):
                 db.commit()
 
 
-def seed():
+def seed(user_id=1):
     db = SessionLocal()
     try:
-        seed_items(db)
-        seed_tracked_products(db)
-        print("Demo items and tracked products seeded successfully.")
+        seed_items(db, user_id)
+        seed_tracked_products(db, user_id)
+        print("Demo data seeded successfully.")
     finally:
         db.close()
 
