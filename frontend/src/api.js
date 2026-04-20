@@ -1,5 +1,7 @@
 import { API_BASE_URL } from "./config";
 
+export { API_BASE_URL };
+
 export function getToken() {
   return localStorage.getItem("sbom_token");
 }

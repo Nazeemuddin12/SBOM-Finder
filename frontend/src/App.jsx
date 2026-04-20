@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useAuth } from "./context/Authcontext";
 import Header from "./components/Header";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Home from "./pages/Home";
 import ItemDetails from "./pages/ItemDetails";
 import Compare from "./pages/Compare";
@@ -10,13 +10,7 @@ import ReverseLookup from "./pages/ReverseLookup";
 import TrackedProducts from "./pages/TrackedProducts";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-
-function ProtectedRoute({ children }) {
-  const { token, loading } = useAuth();
-  if (loading) return <div style={{ padding: "2rem" }}>Loading...</div>;
-  if (!token) return <Navigate to="/login" replace />;
-  return children;
-}
+import { useAuth } from "./context/Authcontext";
 
 function App() {
   const { token } = useAuth();
@@ -25,9 +19,11 @@ function App() {
     <div className="app-shell">
       {token && <Header />}
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        {/* Public routes */}
+        <Route path="/login" element={token ? <Navigate to="/" replace /> : <Login />} />
+        <Route path="/register" element={token ? <Navigate to="/" replace /> : <Register />} />
 
+        {/* Protected routes */}
         <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
         <Route path="/item/:id" element={<ProtectedRoute><ItemDetails /></ProtectedRoute>} />
         <Route path="/compare" element={<ProtectedRoute><Compare /></ProtectedRoute>} />
@@ -36,7 +32,8 @@ function App() {
         <Route path="/reverse-lookup" element={<ProtectedRoute><ReverseLookup /></ProtectedRoute>} />
         <Route path="/tracked-products" element={<ProtectedRoute><TrackedProducts /></ProtectedRoute>} />
 
-        <Route path="*" element={<Navigate to={token ? "/" : "/login"} replace />} />
+        {/* Catch all */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
   );

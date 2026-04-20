@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { API_BASE_URL } from "../config";
+import { apiFetch } from "../api";
 
 function Compare() {
   const navigate = useNavigate();
@@ -8,21 +8,17 @@ function Compare() {
   const [selectedItems, setSelectedItems] = useState([]);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [comparing, setComparing] = useState(false);
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/items`)
+    apiFetch("/items")
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load items");
         return res.json();
       })
-      .then((data) => {
-        setItems(data);
-        setError("");
-      })
-      .catch((err) => {
-        console.error(err);
-        setError(err.message);
-      });
+      .then((data) => { setItems(data); setLoading(false); })
+      .catch((err) => { setError(err.message); setLoading(false); });
   }, []);
 
   const handleCheckboxChange = (itemId) => {
@@ -37,24 +33,23 @@ function Compare() {
       setResult(null);
       return;
     }
-
     if (selectedItems.length > 4) {
       setError("You can compare at most 4 items.");
       setResult(null);
       return;
     }
-
+    setComparing(true);
+    setError("");
     try {
-      const res = await fetch(`${API_BASE_URL}/compare-multi?item_ids=${selectedItems.join(",")}`);
+      const res = await apiFetch(`/compare-multi?item_ids=${selectedItems.join(",")}`);
       if (!res.ok) throw new Error("Comparison failed");
-
       const data = await res.json();
       setResult(data);
-      setError("");
     } catch (err) {
-      console.error(err);
       setError(err.message);
       setResult(null);
+    } finally {
+      setComparing(false);
     }
   };
 
@@ -73,39 +68,52 @@ function Compare() {
 
   return (
     <div className="page-shell">
-      <button className="back-btn ghost" onClick={() => navigate("/")}>
-        ⬅ Back
-      </button>
+      <button className="back-btn ghost" onClick={() => navigate("/")}>⬅ Back</button>
 
       <section className="section-card">
         <h2 className="section-title">Compare Items</h2>
-        <p className="section-subtitle">
-          Select 2 to 4 items and inspect shared, partial, and unique SBOM components.
-        </p>
+        <p className="section-subtitle">Select 2 to 4 items and inspect shared, partial, and unique SBOM components.</p>
 
-        <div className="compare-selection-grid">
-          {items.map((item) => (
-            <label key={item.id} className="compare-option">
-              <div style={{ display: "flex", alignItems: "start", gap: "12px" }}>
-                <input
-                  type="checkbox"
-                  checked={selectedItems.includes(item.id)}
-                  onChange={() => handleCheckboxChange(item.id)}
-                  style={{ width: "auto", marginTop: "4px" }}
-                />
-                <div>
-                  <strong style={{ fontSize: "1.05rem" }}>{item.name}</strong>
-                  <p style={{ margin: "8px 0 0", color: "#a9b7d0" }}>
-                    {item.item_type || "N/A"} • {item.manufacturer || "Unknown manufacturer"}
-                  </p>
+        {loading && (
+          <div style={{ color: "var(--muted)", padding: "1rem 0" }}>
+            <p>Loading your items...</p>
+            <p style={{ fontSize: "0.82rem", marginTop: "6px" }}>
+              The backend may be waking up — this can take up to 30 seconds on first load.
+            </p>
+          </div>
+        )}
+
+        {!loading && items.length === 0 && !error && (
+          <div className="empty-state">No items found. Import an SBOM file first.</div>
+        )}
+
+        {!loading && items.length > 0 && (
+          <div className="compare-selection-grid">
+            {items.map((item) => (
+              <label key={item.id} className="compare-option">
+                <div style={{ display: "flex", alignItems: "start", gap: "12px" }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedItems.includes(item.id)}
+                    onChange={() => handleCheckboxChange(item.id)}
+                    style={{ width: "auto", marginTop: "4px" }}
+                  />
+                  <div>
+                    <strong style={{ fontSize: "1.05rem" }}>{item.name}</strong>
+                    <p style={{ margin: "8px 0 0", color: "#a9b7d0" }}>
+                      {item.item_type || "N/A"} • {item.manufacturer || "Unknown manufacturer"}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </label>
-          ))}
-        </div>
+              </label>
+            ))}
+          </div>
+        )}
 
         <div className="actions-row" style={{ marginTop: "18px" }}>
-          <button onClick={handleCompare}>Run Comparison</button>
+          <button onClick={handleCompare} disabled={comparing || loading}>
+            {comparing ? "Comparing..." : "Run Comparison"}
+          </button>
           <button className="ghost" onClick={handleClear}>Clear</button>
         </div>
 
@@ -116,17 +124,14 @@ function Compare() {
         <section className="section-card">
           <h2 className="section-title">Comparison Matrix</h2>
           <p className="section-subtitle">
-            Common = present in all selected items, Partial = present in some, Unique = present in only one.
+            Common = present in all selected items · Partial = present in some · Unique = present in only one
           </p>
-
           <div className="table-wrap">
             <table className="compare-table">
               <thead>
                 <tr>
                   <th>Component</th>
-                  {result.selected_items.map((item, idx) => (
-                    <th key={idx}>{item}</th>
-                  ))}
+                  {result.selected_items.map((item, idx) => <th key={idx}>{item}</th>)}
                   <th>Category</th>
                 </tr>
               </thead>
@@ -141,13 +146,11 @@ function Compare() {
                           {details ? (
                             <div>
                               <div>✔ Present</div>
-                              <div>Version: {details.version || "N/A"}</div>
-                              <div>License: {details.license || "N/A"}</div>
-                              <div>Supplier: {details.supplier || "N/A"}</div>
+                              <div style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
+                                v{details.version || "N/A"} · {details.license || "N/A"}
+                              </div>
                             </div>
-                          ) : (
-                            <div>—</div>
-                          )}
+                          ) : <div style={{ color: "var(--muted)" }}>—</div>}
                         </td>
                       );
                     })}
