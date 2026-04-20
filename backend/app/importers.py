@@ -5,20 +5,9 @@ def guess_item_type(name: str, category: str | None = None):
     text = f"{name or ''} {category or ''}".lower()
 
     device_keywords = [
-        "router",
-        "camera",
-        "printer",
-        "firmware",
-        "sensor",
-        "iot",
-        "switch",
-        "gateway",
-        "device",
-        "appliance",
-        "scanner",
-        "smart tv",
-        "watch",
-        "speaker",
+        "router", "camera", "printer", "firmware", "sensor", "iot",
+        "switch", "gateway", "device", "appliance", "scanner",
+        "smart tv", "watch", "speaker",
     ]
 
     for keyword in device_keywords:
@@ -110,7 +99,7 @@ def link_item_component(db, item_id, component_id):
         db.commit()
 
 
-def import_cyclonedx_json(data: dict, db, user_id: int | None = None):
+def import_cyclonedx_json(data, db, user_id=None):
     metadata = data.get("metadata", {})
     component_meta = metadata.get("component", {})
 
@@ -133,21 +122,20 @@ def import_cyclonedx_json(data: dict, db, user_id: int | None = None):
 
     if existing_item:
         return existing_item
-    user_id=user_id,
 
     item = Item(
-    user_id=user_id,
-    name=item_name,
-    item_type=item_type,
-    category=item_category,
-    manufacturer=item_supplier,
-    developer=item_supplier,
-    operating_system=None,
-    description=item_description,
-    owner=item_supplier,
-    version=item_version,
-    source_format="cyclonedx",
-    source_name=item_name,
+        user_id=user_id,
+        name=item_name,
+        item_type=item_type,
+        category=item_category,
+        manufacturer=item_supplier,
+        developer=item_supplier,
+        operating_system=None,
+        description=item_description,
+        owner=item_supplier,
+        version=item_version,
+        source_format="cyclonedx",
+        source_name=item_name,
     )
     db.add(item)
     db.commit()
@@ -176,7 +164,7 @@ def import_cyclonedx_json(data: dict, db, user_id: int | None = None):
     return item
 
 
-def import_spdx_json(data: dict, db, user_id: int | None = None):
+def import_spdx_json(data, db, user_id=None):
     item_name = data.get("name", "Unknown SPDX Item")
     item_version = data.get("versionInfo")
     item_supplier = normalize_supplier(data.get("supplier"))
