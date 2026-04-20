@@ -1,9 +1,9 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../api";
 import { useAuth } from "../context/Authcontext";
 
-function Home() {
+export default function Home() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -14,8 +14,7 @@ function Home() {
   const [successMessage, setSuccessMessage] = useState("");
   const [searchName, setSearchName] = useState("");
   const [itemType, setItemType] = useState("");
-  const [manufacturer, setManufacturer] = useState("");
-  const [category, setCategory] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const loadDashboard = async () => {
     try {
@@ -23,16 +22,13 @@ function Home() {
         apiFetch("/items"),
         apiFetch("/stats"),
       ]);
-      if (!itemsRes.ok || !statsRes.ok) throw new Error("Failed to load dashboard");
-      const [itemsData, statsData] = await Promise.all([
-        itemsRes.json(),
-        statsRes.json(),
-      ]);
-      setItems(itemsData);
-      setStats(statsData);
+      if (itemsRes.ok) setItems(await itemsRes.json());
+      if (statsRes.ok) setStats(await statsRes.json());
       setError("");
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -41,14 +37,16 @@ function Home() {
   const handleSearch = async () => {
     try {
       setSuccessMessage("");
+      setExternalResults([]);
       const params = new URLSearchParams();
       if (searchName.trim()) params.append("q", searchName.trim());
       if (itemType) params.append("item_type", itemType);
-      if (manufacturer.trim()) params.append("manufacturer", manufacturer.trim());
-      if (category.trim()) params.append("category", category.trim());
 
       const hasSearchTerm = searchName.trim().length > 0;
-      const url = hasSearchTerm ? `/search-smart?${params}` : `/items?${params}`;
+      const url = hasSearchTerm
+        ? `/search-smart?${params}`
+        : `/items?${params}`;
+
       const res = await apiFetch(url);
       if (!res.ok) throw new Error("Search failed");
       const data = await res.json();
@@ -58,7 +56,6 @@ function Home() {
         setExternalResults(data.external_results || []);
       } else {
         setItems(data);
-        setExternalResults([]);
       }
       setError("");
     } catch (err) {
@@ -69,29 +66,10 @@ function Home() {
   const handleReset = async () => {
     setSearchName("");
     setItemType("");
-    setManufacturer("");
-    setCategory("");
     setExternalResults([]);
     setSuccessMessage("");
+    setError("");
     await loadDashboard();
-  };
-
-  const handleTrackExternal = async (item) => {
-    try {
-      const res = await apiFetch("/tracked-products", {
-        method: "POST",
-        body: JSON.stringify({
-          name: item.full_name || item.name,
-          product_type: "application",
-          vendor: item.owner || null,
-          notes: item.description || null,
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to track product");
-      setSuccessMessage(`"${item.name}" added to tracked products.`);
-    } catch (err) {
-      setError(err.message);
-    }
   };
 
   const handleImportExternal = async (item) => {
@@ -109,7 +87,7 @@ function Home() {
           item_type: "application",
         }),
       });
-      if (!res.ok) throw new Error("Failed to import item");
+      if (!res.ok) throw new Error("Failed to import");
       setSuccessMessage(`"${item.name}" imported to workspace.`);
       await loadDashboard();
     } catch (err) {
@@ -117,220 +95,252 @@ function Home() {
     }
   };
 
-  const greeting = useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 18) return "Good afternoon";
+  const handleTrackExternal = async (item) => {
+    try {
+      const res = await apiFetch("/tracked-products", {
+        method: "POST",
+        body: JSON.stringify({
+          name: item.full_name || item.name,
+          product_type: "application",
+          vendor: item.owner || null,
+          notes: item.description || null,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to track");
+      setSuccessMessage(`"${item.name}" added to tracked products.`);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const greeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return "Good morning";
+    if (h < 18) return "Good afternoon";
     return "Good evening";
-  }, []);
+  };
 
   return (
     <div className="page-shell">
 
-      {/* Hero / Welcome */}
-      <section className="hero-welcome">
+      {/* ── Welcome header ── */}
+      <div style={{
+        padding: "2rem 0 1.5rem",
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        marginBottom: "2rem",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "flex-end",
+        flexWrap: "wrap",
+        gap: "16px",
+      }}>
         <div>
-          <h1>{greeting}, {user?.username} 👋</h1>
-          <p>
-            SBOM Finder helps you import, explore, compare, and trace software
-            bill of materials across devices and applications.
+          <h1 style={{ fontSize: "1.6rem", fontWeight: 800, margin: "0 0 6px", color: "#e2e8f0" }}>
+            {greeting()}, {user?.username} 👋
+          </h1>
+          <p style={{ color: "#8b97a8", margin: 0, fontSize: "0.88rem" }}>
+            {stats
+              ? `${stats.total_items} items · ${stats.total_components} components · ${stats.total_tracked_products} tracked`
+              : "Loading workspace..."}
           </p>
-          <div className="hero-actions">
-            <button onClick={() => navigate("/import")}>+ Import SBOM</button>
-            <button className="secondary" onClick={() => navigate("/compare")}>Compare Items</button>
-            <button className="ghost" onClick={() => navigate("/reverse-lookup")}>Reverse Lookup</button>
-          </div>
         </div>
-      </section>
+        <button
+          onClick={() => navigate("/import")}
+          style={{
+            padding: "10px 20px",
+            borderRadius: "10px",
+            background: "rgba(91,140,255,0.8)",
+            color: "#fff",
+            border: "none",
+            fontWeight: 700,
+            cursor: "pointer",
+            fontSize: "0.88rem",
+          }}
+        >
+          + Import SBOM
+        </button>
+      </div>
 
-      {/* Stats bar */}
-      {stats && (
-        <section className="stats-bar">
-          <div className="stat-pill">
-            <span className="stat-num">{stats.total_items}</span>
-            <span className="stat-label">Total Items</span>
-          </div>
-          <div className="stat-pill">
-            <span className="stat-num">{stats.total_applications}</span>
-            <span className="stat-label">Applications</span>
-          </div>
-          <div className="stat-pill">
-            <span className="stat-num">{stats.total_devices}</span>
-            <span className="stat-label">Devices</span>
-          </div>
-          <div className="stat-pill">
-            <span className="stat-num">{stats.total_components}</span>
-            <span className="stat-label">Components</span>
-          </div>
-          <div className="stat-pill">
-            <span className="stat-num">{stats.total_tracked_products}</span>
-            <span className="stat-label">Tracked</span>
-          </div>
-        </section>
-      )}
-
-      {/* Quick actions */}
-      <section className="quick-actions-grid">
-        <div className="quick-action-card" onClick={() => navigate("/import")}>
-          <div className="qa-icon">📥</div>
-          <div>
-            <h3>Import SBOM</h3>
-            <p>Upload CycloneDX or SPDX JSON files</p>
-          </div>
-        </div>
-        <div className="quick-action-card" onClick={() => navigate("/compare")}>
-          <div className="qa-icon">⚖️</div>
-          <div>
-            <h3>Compare Items</h3>
-            <p>Side-by-side component matrix</p>
-          </div>
-        </div>
-        <div className="quick-action-card" onClick={() => navigate("/reverse-lookup")}>
-          <div className="qa-icon">🔍</div>
-          <div>
-            <h3>Reverse Lookup</h3>
-            <p>Find which products use a component</p>
-          </div>
-        </div>
-        <div className="quick-action-card" onClick={() => navigate("/tracked-products")}>
-          <div className="qa-icon">📌</div>
-          <div>
-            <h3>Tracked Products</h3>
-            <p>Monitor external products</p>
-          </div>
-        </div>
-      </section>
-
-      {/* Search */}
-      <section className="section-card">
-        <h2 className="section-title">Search & Filter</h2>
-        <div className="search-grid">
+      {/* ── Single search bar ── */}
+      <div style={{
+        background: "rgba(255,255,255,0.03)",
+        border: "1px solid rgba(255,255,255,0.07)",
+        borderRadius: "14px",
+        padding: "20px",
+        marginBottom: "1.5rem",
+      }}>
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
           <input
             type="text"
-            placeholder="Search by name, keyword..."
+            placeholder="Search items by name, keyword, component..."
             value={searchName}
             onChange={(e) => setSearchName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            style={{ flex: 1, minWidth: "200px", padding: "10px 14px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: "#e2e8f0", fontSize: "0.9rem" }}
           />
-          <select value={itemType} onChange={(e) => setItemType(e.target.value)}>
+          <select
+            value={itemType}
+            onChange={(e) => setItemType(e.target.value)}
+            style={{ padding: "10px 14px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: "#e2e8f0", fontSize: "0.9rem" }}
+          >
             <option value="">All Types</option>
-            <option value="application">Application</option>
-            <option value="device">Device</option>
+            <option value="application">Applications</option>
+            <option value="device">Devices</option>
           </select>
-          <input
-            type="text"
-            placeholder="Manufacturer"
-            value={manufacturer}
-            onChange={(e) => setManufacturer(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          />
+          <button onClick={handleSearch} style={{ padding: "10px 20px", borderRadius: "8px", background: "rgba(91,140,255,0.7)", color: "#fff", border: "none", fontWeight: 600, cursor: "pointer" }}>
+            Search
+          </button>
+          <button onClick={handleReset} className="ghost" style={{ padding: "10px 16px", borderRadius: "8px" }}>
+            Reset
+          </button>
         </div>
-        <div className="actions-row" style={{ marginTop: "14px" }}>
-          <button onClick={handleSearch}>Search</button>
-          <button className="ghost" onClick={handleReset}>Reset</button>
-        </div>
-        {error && <p className="error-text" style={{ marginTop: "12px" }}>{error}</p>}
-        {successMessage && (
-          <p style={{ color: "var(--success)", marginTop: "12px", fontSize: "0.9rem" }}>
-            {successMessage}
-          </p>
-        )}
-      </section>
 
-      {/* Items grid */}
-      {items.length > 0 && (
-        <section className="section-card">
-          <h2 className="section-title">
+        {error && <p style={{ color: "#ff6b6b", margin: "10px 0 0", fontSize: "0.85rem" }}>{error}</p>}
+        {successMessage && <p style={{ color: "#34d399", margin: "10px 0 0", fontSize: "0.85rem" }}>{successMessage}</p>}
+      </div>
+
+      {/* ── Items grid ── */}
+      {loading && (
+        <div style={{ textAlign: "center", padding: "3rem", color: "#8b97a8" }}>
+          <p>Loading your workspace...</p>
+          <p style={{ fontSize: "0.8rem", marginTop: "6px" }}>Backend may be waking up — please wait up to 30 seconds.</p>
+        </div>
+      )}
+
+      {!loading && items.length === 0 && !error && externalResults.length === 0 && (
+        <div style={{ textAlign: "center", padding: "4rem 2rem", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "14px" }}>
+          <div style={{ fontSize: "3rem", marginBottom: "16px" }}>📭</div>
+          <h3 style={{ color: "#e2e8f0", margin: "0 0 8px" }}>No items yet</h3>
+          <p style={{ color: "#8b97a8", marginBottom: "20px", fontSize: "0.88rem" }}>
+            Import a CycloneDX or SPDX file to start building your SBOM workspace.
+          </p>
+          <button onClick={() => navigate("/import")}>+ Import your first SBOM</button>
+        </div>
+      )}
+
+      {!loading && items.length > 0 && (
+        <div style={{
+          background: "rgba(255,255,255,0.02)",
+          border: "1px solid rgba(255,255,255,0.06)",
+          borderRadius: "14px",
+          padding: "20px",
+          marginBottom: "1.5rem",
+        }}>
+          <h2 style={{ fontSize: "0.88rem", fontWeight: 700, color: "#8b97a8", textTransform: "uppercase", letterSpacing: "0.07em", margin: "0 0 16px" }}>
             Indexed Items
-            <span style={{ fontSize: "13px", fontWeight: 400, color: "var(--muted)", marginLeft: "10px" }}>
-              {items.length} found
-            </span>
+            <span style={{ fontWeight: 400, marginLeft: "8px", color: "#5a6478" }}>{items.length} found</span>
           </h2>
-          <div className="items-grid">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "12px" }}>
             {items.map((item) => (
               <div
                 key={item.id}
-                className="item-card"
                 onClick={() => navigate(`/item/${item.id}`)}
+                style={{
+                  padding: "14px 16px",
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                  borderRadius: "10px",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(91,140,255,0.35)"; e.currentTarget.style.background = "rgba(91,140,255,0.05)"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
               >
-                <div className="item-card-header">
-                  <span className="item-name">{item.name}</span>
-                  <span className={`item-type-badge ${item.item_type}`}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "6px" }}>
+                  <span style={{ fontWeight: 600, color: "#e2e8f0", fontSize: "0.9rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "170px" }}>
+                    {item.name}
+                  </span>
+                  <span style={{
+                    fontSize: "0.65rem",
+                    padding: "2px 8px",
+                    borderRadius: "20px",
+                    flexShrink: 0,
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    background: item.item_type === "application" ? "rgba(91,140,255,0.15)" : "rgba(249,115,22,0.15)",
+                    color: item.item_type === "application" ? "#5b8cff" : "#f97316",
+                  }}>
                     {item.item_type}
                   </span>
                 </div>
-                <p className="item-meta">
-                  {item.manufacturer || "Unknown manufacturer"} • {item.category || "Uncategorized"}
+                <p style={{ color: "#8b97a8", fontSize: "0.78rem", margin: "0 0 8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {item.manufacturer || "Unknown"} · {item.category || "Uncategorized"}
                 </p>
-                {item.version && (
-                  <p className="item-version">v{item.version}</p>
-                )}
-                <div className="item-card-footer">
-                  <span className="item-source">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "8px", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                  <span style={{ fontSize: "0.72rem", color: "#5a6478" }}>
                     {item.source_format === "cyclonedx" ? "🔵 CycloneDX" :
                      item.source_format === "spdx" ? "🟢 SPDX" :
+                     item.source_format === "ai_discovered" ? "🤖 AI" :
                      item.source_format === "external" ? "🌐 External" : "📦 " + (item.source_format || "unknown")}
+                    {item.version ? ` · v${item.version}` : ""}
                   </span>
-                  <span className="item-action">View details →</span>
+                  <span style={{ fontSize: "0.72rem", color: "#5b8cff" }}>View →</span>
                 </div>
               </div>
             ))}
           </div>
-        </section>
+        </div>
       )}
 
-      {items.length === 0 && !error && (
-        <section className="section-card">
-          <div className="empty-state">
-            <div style={{ fontSize: "3rem", marginBottom: "16px" }}>📭</div>
-            <h3>No items yet</h3>
-            <p style={{ color: "var(--muted)", marginBottom: "20px" }}>
-              Import a CycloneDX or SPDX file to get started exploring SBOM data.
-            </p>
-            <button onClick={() => navigate("/import")}>+ Import your first SBOM</button>
-          </div>
-        </section>
-      )}
-
-      {/* External results */}
+      {/* ── External search results ── */}
       {externalResults.length > 0 && (
-        <section className="section-card">
-          <h2 className="section-title">External Suggestions</h2>
-          <p className="section-subtitle">No local results found. Here are suggestions from GitHub.</p>
-          <div className="items-grid">
+        <div style={{
+          background: "rgba(255,255,255,0.02)",
+          border: "1px solid rgba(52,211,153,0.15)",
+          borderRadius: "14px",
+          padding: "20px",
+        }}>
+          <h2 style={{ fontSize: "0.88rem", fontWeight: 700, color: "#34d399", textTransform: "uppercase", letterSpacing: "0.07em", margin: "0 0 6px" }}>
+            External Results
+          </h2>
+          <p style={{ color: "#8b97a8", fontSize: "0.8rem", margin: "0 0 16px" }}>
+            No local matches found. Results from npm, PyPI, Maven, GitHub and more:
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "12px" }}>
             {externalResults.map((item, i) => (
-              <div key={i} className="item-card external">
-                <div className="item-card-header">
-                  <span className="item-name">{item.name}</span>
-                  <span className="item-type-badge application">external</span>
+              <div
+                key={i}
+                style={{
+                  padding: "14px 16px",
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                  borderRadius: "10px",
+                  transition: "border-color 0.15s",
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(52,211,153,0.3)"}
+                onMouseLeave={e => e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+                  <span style={{ fontWeight: 600, color: "#e2e8f0", fontSize: "0.88rem" }}>{item.name}</span>
+                  <span style={{ fontSize: "0.68rem", color: "#34d399", background: "rgba(52,211,153,0.1)", padding: "2px 7px", borderRadius: "10px" }}>
+                    {item.source}
+                  </span>
                 </div>
-                <p className="item-meta">{item.owner} • ⭐ {item.stars}</p>
-                {item.description && (
-                  <p className="item-version" style={{ fontStyle: "italic" }}>{item.description}</p>
-                )}
-                <div className="actions-row" style={{ marginTop: "10px", gap: "8px" }}>
+                {item.version && <p style={{ color: "#5b8cff", fontSize: "0.72rem", margin: "2px 0 4px", fontFamily: "monospace" }}>v{item.version}</p>}
+                <p style={{ color: "#8b97a8", fontSize: "0.78rem", margin: "0 0 10px", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                  {item.description || "No description available."}
+                </p>
+                {item.license && <p style={{ fontSize: "0.7rem", color: "#a78bfa", margin: "0 0 10px" }}>📜 {item.license}</p>}
+                <div style={{ display: "flex", gap: "8px" }}>
                   <button
-                    style={{ fontSize: "12px", padding: "5px 10px" }}
-                    onClick={(e) => { e.stopPropagation(); handleImportExternal(item); }}
-                  >Import</button>
+                    onClick={() => handleImportExternal(item)}
+                    style={{ flex: 1, padding: "6px", fontSize: "0.75rem", borderRadius: "6px", background: "rgba(91,140,255,0.2)", color: "#5b8cff", border: "1px solid rgba(91,140,255,0.3)", cursor: "pointer" }}
+                  >
+                    Import
+                  </button>
                   <button
-                    className="ghost"
-                    style={{ fontSize: "12px", padding: "5px 10px" }}
-                    onClick={(e) => { e.stopPropagation(); handleTrackExternal(item); }}
-                  >Track</button>
+                    onClick={() => handleTrackExternal(item)}
+                    style={{ flex: 1, padding: "6px", fontSize: "0.75rem", borderRadius: "6px", background: "rgba(52,211,153,0.1)", color: "#34d399", border: "1px solid rgba(52,211,153,0.2)", cursor: "pointer" }}
+                  >
+                    Track
+                  </button>
                 </div>
               </div>
             ))}
           </div>
-        </section>
+        </div>
       )}
     </div>
   );
 }
-
-export default Home;
