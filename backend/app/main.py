@@ -3,6 +3,8 @@ import json
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from fastapi.middleware.cors import CORSMiddleware
+from app.ai_discoverer import discover_sbom_with_ai, save_discovered_sbom
+import os
 
 from app.auth import (
     hash_password, verify_password, create_access_token, get_current_user, get_db,
@@ -642,3 +644,36 @@ def import_external_item(
     db.commit()
     db.refresh(new_item)
     return new_item
+
+# ---------------------------------------------------------------------------
+# AI Discovery
+# ---------------------------------------------------------------------------
+
+@app.post("/discover")
+def discover_sbom(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    query = payload.get("query", "").strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="Query is required")
+    try:
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured on server")
+        sbom_data = discover_sbom_with_ai(query, api_key=api_key)
+        item = save_discovered_sbom(sbom_data, db, user_id=current_user.id)
+        return {
+            "message": f"SBOM discovered for {sbom_data['name']}",
+            "item_id": item.id,
+            "item_name": item.name,
+            "components_found": len(sbom_data.get("components", [])),
+            "category": sbom_data.get("category"),
+            "license": sbom_data.get("license"),
+            "description": sbom_data.get("description"),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Discovery failed: {str(e)}")

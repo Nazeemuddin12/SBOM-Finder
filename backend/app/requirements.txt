@@ -6,4 +6,6 @@ python-multipart
 requests
 python-jose[cryptography]
 passlib[bcrypt]
-rapidfuzz
+bcrypt==4.0.1
+anthropic
+psycopg2-binary

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Text, Float
+from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Text, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
@@ -11,10 +11,14 @@ class User(Base):
     username = Column(String, unique=True, nullable=False, index=True)
     email = Column(String, unique=True, nullable=False, index=True)
     hashed_password = Column(String, nullable=False)
+    role = Column(String, default="user", nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    is_active = Column(Boolean, default=True)
 
     items = relationship("Item", back_populates="owner_user")
     tracked_products = relationship("TrackedProduct", back_populates="owner_user")
+    audit_logs = relationship("AuditLog", back_populates="user")
+
 
 class Item(Base):
     __tablename__ = "items"
@@ -22,17 +26,26 @@ class Item(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     name = Column(String, nullable=False)
-    item_type = Column(String, nullable=False)   # device or application
+    item_type = Column(String, nullable=False)
     category = Column(String, nullable=True)
     manufacturer = Column(String, nullable=True)
     developer = Column(String, nullable=True)
     operating_system = Column(String, nullable=True)
     description = Column(String, nullable=True)
-
     owner = Column(String, nullable=True)
     version = Column(String, nullable=True)
-    source_format = Column(String, nullable=True)   # cyclonedx / spdx / seed
+    source_format = Column(String, nullable=True)
     source_name = Column(String, nullable=True)
+
+    is_public = Column(Boolean, default=False)
+    is_verified = Column(Boolean, default=False)
+    is_featured = Column(Boolean, default=False)
+    approval_status = Column(String, default="private")
+    rejection_note = Column(Text, nullable=True)
+    upvotes = Column(Integer, default=0)
+    public_submitted_at = Column(DateTime, nullable=True)
+    public_approved_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
     components = relationship("ItemComponent", back_populates="item")
     owner_user = relationship("User", back_populates="items")
@@ -46,6 +59,9 @@ class Component(Base):
     version = Column(String, nullable=True)
     supplier = Column(String, nullable=True)
     license = Column(String, nullable=True)
+    is_vulnerable = Column(Boolean, default=False)
+    vulnerability_note = Column(Text, nullable=True)
+    vulnerability_cve = Column(String, nullable=True)
 
     items = relationship("ItemComponent", back_populates="component")
 
@@ -59,6 +75,7 @@ class ItemComponent(Base):
 
     item = relationship("Item", back_populates="components")
     component = relationship("Component", back_populates="items")
+
 
 class TrackedProduct(Base):
     __tablename__ = "tracked_products"
@@ -89,4 +106,45 @@ class SourceRecord(Base):
     confidence = Column(String, nullable=True)
     last_fetched = Column(DateTime, nullable=True)
 
-    tracked_product = relationship("TrackedProduct", back_populates="sources")    
+    tracked_product = relationship("TrackedProduct", back_populates="sources")
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    action = Column(String, nullable=False)
+    resource_type = Column(String, nullable=True)
+    resource_id = Column(Integer, nullable=True)
+    details = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="audit_logs")
+
+
+class VulnerabilityAlert(Base):
+    __tablename__ = "vulnerability_alerts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    component_name = Column(String, nullable=False)
+    component_version = Column(String, nullable=True)
+    cve_id = Column(String, nullable=True)
+    severity = Column(String, nullable=True)
+    description = Column(Text, nullable=True)
+    flagged_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class SbomRequest(Base):
+    __tablename__ = "sbom_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    requested_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    product_name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    status = Column(String, default="open")
+    upvotes = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    fulfilled_at = Column(DateTime, nullable=True)
+    fulfilled_item_id = Column(Integer, ForeignKey("items.id"), nullable=True)
