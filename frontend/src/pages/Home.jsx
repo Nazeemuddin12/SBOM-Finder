@@ -15,6 +15,7 @@ export default function Home() {
   const [searchName, setSearchName] = useState("");
   const [itemType, setItemType] = useState("");
   const [loading, setLoading] = useState(true);
+  const [liveEcosystem, setLiveEcosystem] = useState("npm");
 
   const loadDashboard = async () => {
     try {
@@ -43,9 +44,7 @@ export default function Home() {
       if (itemType) params.append("item_type", itemType);
 
       const hasSearchTerm = searchName.trim().length > 0;
-      const url = hasSearchTerm
-        ? `/search-smart?${params}`
-        : `/items?${params}`;
+      const url = hasSearchTerm ? `/search-smart?${params}` : `/items?${params}`;
 
       const res = await apiFetch(url);
       if (!res.ok) throw new Error("Search failed");
@@ -70,6 +69,27 @@ export default function Home() {
     setSuccessMessage("");
     setError("");
     await loadDashboard();
+  };
+
+  const handleLiveFetch = async () => {
+    if (!searchName.trim()) {
+      setError("Enter a package name in the search box first");
+      return;
+    }
+    setError("");
+    setSuccessMessage("");
+    try {
+      const res = await apiFetch("/fetch-live-sbom", {
+        method: "POST",
+        body: JSON.stringify({ name: searchName.trim(), ecosystem: liveEcosystem }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Failed");
+      setSuccessMessage(`✅ ${data.message} — ${data.components_found} components found`);
+      await loadDashboard();
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   const handleImportExternal = async (item) => {
@@ -123,7 +143,7 @@ export default function Home() {
   return (
     <div className="page-shell">
 
-      {/* ── Welcome header ── */}
+      {/* Welcome header */}
       <div style={{
         padding: "2rem 0 1.5rem",
         borderBottom: "1px solid rgba(255,255,255,0.06)",
@@ -161,7 +181,7 @@ export default function Home() {
         </button>
       </div>
 
-      {/* ── Single search bar ── */}
+      {/* Search box */}
       <div style={{
         background: "rgba(255,255,255,0.03)",
         border: "1px solid rgba(255,255,255,0.07)",
@@ -169,6 +189,7 @@ export default function Home() {
         padding: "20px",
         marginBottom: "1.5rem",
       }}>
+        {/* Search inputs row */}
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
           <input
             type="text"
@@ -195,11 +216,34 @@ export default function Home() {
           </button>
         </div>
 
+        {/* Live fetch row */}
+        <div style={{ marginTop: "10px", paddingTop: "10px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "0.78rem", color: "#8b97a8" }}>🌐 Fetch live SBOM from registry:</span>
+          <select
+            value={liveEcosystem}
+            onChange={(e) => setLiveEcosystem(e.target.value)}
+            style={{ padding: "6px 10px", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.1)", background: "#1a2030", color: "#e2e8f0", fontSize: "0.82rem" }}
+          >
+            <option value="npm">npm</option>
+            <option value="pypi">PyPI</option>
+            <option value="maven">Maven</option>
+            <option value="go">Go</option>
+            <option value="cargo">Cargo</option>
+          </select>
+          <button
+            onClick={handleLiveFetch}
+            style={{ padding: "6px 14px", borderRadius: "6px", background: "rgba(52,211,153,0.15)", color: "#34d399", border: "1px solid rgba(52,211,153,0.3)", cursor: "pointer", fontSize: "0.82rem", fontWeight: 600 }}
+          >
+            Fetch Live SBOM
+          </button>
+        </div>
+
+        {/* Messages */}
         {error && <p style={{ color: "#ff6b6b", margin: "10px 0 0", fontSize: "0.85rem" }}>{error}</p>}
         {successMessage && <p style={{ color: "#34d399", margin: "10px 0 0", fontSize: "0.85rem" }}>{successMessage}</p>}
       </div>
 
-      {/* ── Items grid ── */}
+      {/* Loading state */}
       {loading && (
         <div style={{ textAlign: "center", padding: "3rem", color: "#8b97a8" }}>
           <p>Loading your workspace...</p>
@@ -207,17 +251,19 @@ export default function Home() {
         </div>
       )}
 
+      {/* Empty state */}
       {!loading && items.length === 0 && !error && externalResults.length === 0 && (
         <div style={{ textAlign: "center", padding: "4rem 2rem", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "14px" }}>
           <div style={{ fontSize: "3rem", marginBottom: "16px" }}>📭</div>
           <h3 style={{ color: "#e2e8f0", margin: "0 0 8px" }}>No items yet</h3>
           <p style={{ color: "#8b97a8", marginBottom: "20px", fontSize: "0.88rem" }}>
-            Import a CycloneDX or SPDX file to start building your SBOM workspace.
+            Import a CycloneDX or SPDX file, or use the live fetch above to get started.
           </p>
           <button onClick={() => navigate("/import")}>+ Import your first SBOM</button>
         </div>
       )}
 
+      {/* Items grid */}
       {!loading && items.length > 0 && (
         <div style={{
           background: "rgba(255,255,255,0.02)",
@@ -272,7 +318,10 @@ export default function Home() {
                     {item.source_format === "cyclonedx" ? "🔵 CycloneDX" :
                      item.source_format === "spdx" ? "🟢 SPDX" :
                      item.source_format === "ai_discovered" ? "🤖 AI" :
-                     item.source_format === "external" ? "🌐 External" : "📦 " + (item.source_format || "unknown")}
+                     item.source_format === "external" ? "🌐 External" :
+                     item.source_format === "live_fetched" ? "📡 Live" :
+                     item.source_format === "public_catalog" ? "🌐 Public" :
+                     "📦 " + (item.source_format || "unknown")}
                     {item.version ? ` · v${item.version}` : ""}
                   </span>
                   <span style={{ fontSize: "0.72rem", color: "#5b8cff" }}>View →</span>
@@ -283,7 +332,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* ── External search results ── */}
+      {/* External search results */}
       {externalResults.length > 0 && (
         <div style={{
           background: "rgba(255,255,255,0.02)",

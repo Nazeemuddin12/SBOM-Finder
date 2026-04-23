@@ -874,6 +874,68 @@ def submit_to_public(
     log_action(db, current_user.id, "submit_to_public", "item", item_id)
     return {"message": "Submitted for admin review"}
 
+@app.post("/public/items/{item_id}/copy-to-workspace")
+def copy_public_to_workspace(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    # Get the public item
+    public_item = db.query(models.Item).filter(
+        models.Item.id == item_id,
+        models.Item.is_public == True,
+        models.Item.approval_status == "approved",
+    ).first()
+    if not public_item:
+        raise HTTPException(status_code=404, detail="Public item not found")
+
+    # Check if user already has a copy
+    existing = db.query(models.Item).filter(
+        models.Item.user_id == current_user.id,
+        models.Item.name == public_item.name,
+        models.Item.source_format == public_item.source_format,
+    ).first()
+    if existing:
+        return {"message": "Already in your workspace", "item_id": existing.id}
+
+    # Create a copy for the user
+    new_item = models.Item(
+        user_id=current_user.id,
+        name=public_item.name,
+        item_type=public_item.item_type,
+        category=public_item.category,
+        manufacturer=public_item.manufacturer,
+        developer=public_item.developer,
+        operating_system=public_item.operating_system,
+        description=public_item.description,
+        owner=public_item.owner,
+        version=public_item.version,
+        source_format=public_item.source_format,
+        source_name=public_item.source_name,
+        is_public=False,
+        approval_status="private",
+    )
+    db.add(new_item)
+    db.commit()
+    db.refresh(new_item)
+
+    # Copy all components
+    for link in public_item.components:
+        existing_link = db.query(models.ItemComponent).filter(
+            models.ItemComponent.item_id == new_item.id,
+            models.ItemComponent.component_id == link.component_id,
+        ).first()
+        if not existing_link:
+            db.add(models.ItemComponent(
+                item_id=new_item.id,
+                component_id=link.component_id,
+            ))
+    db.commit()
+
+    return {
+        "message": f"{public_item.name} copied to your workspace",
+        "item_id": new_item.id,
+    }
 
 @app.post("/items/{item_id}/make-private")
 def make_item_private(
@@ -1185,6 +1247,104 @@ def seed_catalog(
     from app.seed_real_data import seed_public_catalog
     count = seed_public_catalog(db, admin_user_id=admin.id)
     return {"message": f"Seeded {count} items to public catalog"}
+
+# ---------------------------------------------------------------------------
+# Live data fetcher from deps.dev
+# ---------------------------------------------------------------------------
+
+@app.post("/fetch-live-sbom")
+def fetch_live_sbom(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    import requests as req
+    package_name = payload.get("name", "").strip()
+    ecosystem = payload.get("ecosystem", "npm").lower()
+
+    if not package_name:
+        raise HTTPException(status_code=400, detail="Package name required")
+
+    system_map = {"npm": "npm", "pypi": "pypi", "maven": "maven", "go": "go", "cargo": "cargo"}
+    system = system_map.get(ecosystem, "npm")
+
+    try:
+        pkg_url = f"https://api.deps.dev/v3alpha/systems/{system}/packages/{package_name}"
+        pkg_res = req.get(pkg_url, timeout=10)
+        if pkg_res.status_code != 200:
+            raise HTTPException(status_code=404, detail=f"Package '{package_name}' not found in {ecosystem}")
+
+        pkg_data = pkg_res.json()
+        versions = pkg_data.get("versions", [])
+        latest_version = versions[-1].get("versionKey", {}).get("version", "unknown") if versions else "unknown"
+
+        dep_url = f"https://api.deps.dev/v3alpha/systems/{system}/packages/{package_name}/versions/{latest_version}/dependencies"
+        dep_res = req.get(dep_url, timeout=10)
+
+        components_data = []
+        if dep_res.status_code == 200:
+            nodes = dep_res.json().get("nodes", [])
+            for node in nodes[1:25]:
+                vk = node.get("versionKey", {})
+                components_data.append({
+                    "name": vk.get("name", "unknown"),
+                    "version": vk.get("version"),
+                    "system": vk.get("system", system),
+                })
+
+        existing = db.query(models.Item).filter(
+            models.Item.name == package_name,
+            models.Item.source_format == "live_fetched",
+            models.Item.user_id == current_user.id,
+        ).first()
+        if existing:
+            return {
+                "message": f"{package_name} already in your workspace",
+                "item_id": existing.id,
+                "item_name": existing.name,
+                "components_found": len(components_data),
+            }
+
+        item = models.Item(
+            user_id=current_user.id,
+            name=package_name,
+            item_type="application",
+            category=f"{ecosystem.upper()} Package",
+            manufacturer=ecosystem.upper(),
+            developer=ecosystem.upper(),
+            version=latest_version,
+            source_format="live_fetched",
+            source_name=f"deps.dev/{ecosystem}",
+            description=f"{package_name} {latest_version} — live dependency data from deps.dev (Google)",
+        )
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+
+        from app.importers import get_or_create_component, link_item_component
+        for comp in components_data:
+            component = get_or_create_component(
+                db,
+                comp_name=comp["name"],
+                comp_version=comp["version"],
+                comp_supplier=comp["system"],
+                comp_license=None,
+            )
+            link_item_component(db, item.id, component.id)
+
+        return {
+            "message": f"Live SBOM fetched for {package_name}",
+            "item_id": item.id,
+            "item_name": item.name,
+            "version": latest_version,
+            "components_found": len(components_data),
+            "ecosystem": ecosystem,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch live data: {str(e)}")
 
 
 # ---------------------------------------------------------------------------
