@@ -14,6 +14,7 @@ import Admin from "./pages/Admin";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import { useAuth } from "./context/Authcontext";
+import Generate from "./pages/Generate";
 
 function App() {
   const { token } = useAuth();
@@ -40,6 +41,7 @@ function App() {
         <Route path="/discover" element={<ProtectedRoute><Discover /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
         <Route path="*" element={token ? <Navigate to="/dashboard" replace /> : <Navigate to="/" replace />} />
+        <Route path="/generate" element={<ProtectedRoute><Generate /></ProtectedRoute>} />
       </Routes>
     </div>
   );

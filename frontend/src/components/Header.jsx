@@ -20,6 +20,7 @@ export default function Header() {
     { label: "Import", path: "/import" },
     { label: "Stats", path: "/stats" },
     { label: "Tracked", path: "/tracked-products" },
+    { label: "Generate", path: "/generate" },
     ...(user?.role === "admin" ? [{ label: "🛡️ Admin", path: "/admin" }] : []),
   ];
 
