@@ -12,7 +12,7 @@ export default function Header() {
   };
 
   const links = [
-    { label: "Dashboard", path: "/" },
+    { label: "Dashboard", path: "/dashboard" },
     { label: "Browse", path: "/browse" },
     { label: "Discover", path: "/discover" },
     { label: "Compare", path: "/compare" },

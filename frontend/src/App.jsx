@@ -21,10 +21,16 @@ function App() {
     <div className="app-shell">
       {token && <Header />}
       <Routes>
-        <Route path="/login" element={token ? <Navigate to="/" replace /> : <Login />} />
-        <Route path="/register" element={token ? <Navigate to="/" replace /> : <Register />} />
+        {/* Public routes - no login needed */}
         <Route path="/browse" element={<Browse />} />
-        <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+        <Route path="/login" element={token ? <Navigate to="/dashboard" replace /> : <Login />} />
+        <Route path="/register" element={token ? <Navigate to="/dashboard" replace /> : <Register />} />
+
+        {/* Root: show Browse to visitors, Dashboard to logged in users */}
+        <Route path="/" element={token ? <Navigate to="/dashboard" replace /> : <Browse />} />
+
+        {/* Protected routes */}
+        <Route path="/dashboard" element={<ProtectedRoute><Home /></ProtectedRoute>} />
         <Route path="/item/:id" element={<ProtectedRoute><ItemDetails /></ProtectedRoute>} />
         <Route path="/compare" element={<ProtectedRoute><Compare /></ProtectedRoute>} />
         <Route path="/stats" element={<ProtectedRoute><Stats /></ProtectedRoute>} />
@@ -33,7 +39,7 @@ function App() {
         <Route path="/tracked-products" element={<ProtectedRoute><TrackedProducts /></ProtectedRoute>} />
         <Route path="/discover" element={<ProtectedRoute><Discover /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={token ? <Navigate to="/dashboard" replace /> : <Navigate to="/" replace />} />
       </Routes>
     </div>
   );
