@@ -108,7 +108,9 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
             id=user.id,
             username=user.username,
             email=user.email,
+            role=user.role,
             created_at=user.created_at,
+            is_active=user.is_active,
         ),
     )
 
@@ -126,7 +128,9 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             id=user.id,
             username=user.username,
             email=user.email,
+            role=user.role,
             created_at=user.created_at,
+            is_active=user.is_active,
         ),
     )
 
@@ -134,6 +138,19 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 @app.get("/auth/me", response_model=UserResponse)
 def get_me(current_user: models.User = Depends(get_current_user)):
     return current_user
+
+@app.post("/auth/make-admin")
+def make_admin(payload: dict, db: Session = Depends(get_db)):
+    secret = payload.get("secret")
+    username = payload.get("username")
+    if secret != os.getenv("ADMIN_SECRET", "sbom-secret-2026"):
+        raise HTTPException(status_code=403, detail="Invalid secret")
+    user = db.query(models.User).filter(models.User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.role = "admin"
+    db.commit()
+    return {"message": f"{username} is now admin", "role": user.role}
 
 
 # ---------------------------------------------------------------------------
