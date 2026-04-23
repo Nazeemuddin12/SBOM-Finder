@@ -677,3 +677,532 @@ def discover_sbom(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Discovery failed: {str(e)}")
+    
+    # ---------------------------------------------------------------------------
+# Admin helper
+# ---------------------------------------------------------------------------
+
+from datetime import datetime
+
+def require_admin(current_user: models.User = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
+
+def log_action(db, user_id, action, resource_type=None, resource_id=None, details=None):
+    try:
+        log = models.AuditLog(
+            user_id=user_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            details=details,
+        )
+        db.add(log)
+        db.commit()
+    except Exception:
+        pass
+
+# ---------------------------------------------------------------------------
+# Public catalog
+# ---------------------------------------------------------------------------
+
+@app.get("/public/items")
+def get_public_items(
+    q: str | None = None,
+    category: str | None = None,
+    item_type: str | None = None,
+    verified_only: bool = False,
+    db: Session = Depends(get_db),
+):
+    query = db.query(models.Item).filter(
+        models.Item.is_public == True,
+        models.Item.approval_status == "approved",
+    )
+    if q:
+        query = query.filter(
+            or_(
+                models.Item.name.ilike(f"%{q}%"),
+                models.Item.description.ilike(f"%{q}%"),
+                models.Item.manufacturer.ilike(f"%{q}%"),
+                models.Item.category.ilike(f"%{q}%"),
+            )
+        )
+    if category:
+        query = query.filter(models.Item.category.ilike(f"%{category}%"))
+    if item_type:
+        query = query.filter(models.Item.item_type == item_type)
+    if verified_only:
+        query = query.filter(models.Item.is_verified == True)
+
+    items = query.order_by(
+        models.Item.is_featured.desc(),
+        models.Item.upvotes.desc()
+    ).all()
+
+    result = []
+    for item in items:
+        component_count = db.query(models.ItemComponent).filter(
+            models.ItemComponent.item_id == item.id
+        ).count()
+        result.append({
+            "id": item.id,
+            "name": item.name,
+            "item_type": item.item_type,
+            "category": item.category,
+            "manufacturer": item.manufacturer,
+            "developer": item.developer,
+            "description": item.description,
+            "version": item.version,
+            "source_format": item.source_format,
+            "is_verified": item.is_verified,
+            "is_featured": item.is_featured,
+            "upvotes": item.upvotes,
+            "component_count": component_count,
+        })
+    return result
+
+
+@app.get("/public/items/{item_id}")
+def get_public_item(item_id: int, db: Session = Depends(get_db)):
+    item = db.query(models.Item).filter(
+        models.Item.id == item_id,
+        models.Item.is_public == True,
+        models.Item.approval_status == "approved",
+    ).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return build_item_detail(item)
+
+
+@app.get("/public/stats")
+def get_public_stats(db: Session = Depends(get_db)):
+    total_public = db.query(models.Item).filter(
+        models.Item.is_public == True,
+        models.Item.approval_status == "approved",
+    ).count()
+    total_verified = db.query(models.Item).filter(
+        models.Item.is_verified == True,
+        models.Item.is_public == True,
+    ).count()
+    total_components = db.query(models.Component).count()
+    total_users = db.query(models.User).count()
+    return {
+        "total_public_items": total_public,
+        "total_verified": total_verified,
+        "total_components": total_components,
+        "total_users": total_users,
+    }
+
+
+@app.get("/public/reverse-search")
+def public_reverse_search(component_name: str, db: Session = Depends(get_db)):
+    component_matches = db.query(models.Component).filter(
+        models.Component.component_name.ilike(f"%{component_name}%")
+    ).all()
+    if not component_matches:
+        return []
+    found_items = []
+    seen_ids = set()
+    for component in component_matches:
+        for link in component.items:
+            item = link.item
+            if item.id in seen_ids:
+                continue
+            if not item.is_public or item.approval_status != "approved":
+                continue
+            found_items.append({
+                "id": item.id,
+                "name": item.name,
+                "item_type": item.item_type,
+                "manufacturer": item.manufacturer,
+                "is_verified": item.is_verified,
+            })
+            seen_ids.add(item.id)
+    return found_items
+
+
+@app.post("/public/items/{item_id}/upvote")
+def upvote_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    item = db.query(models.Item).filter(
+        models.Item.id == item_id,
+        models.Item.is_public == True,
+    ).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    item.upvotes = (item.upvotes or 0) + 1
+    db.commit()
+    return {"upvotes": item.upvotes}
+
+
+@app.post("/items/{item_id}/submit-public")
+def submit_to_public(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    item = db.query(models.Item).filter(
+        models.Item.id == item_id,
+        models.Item.user_id == current_user.id,
+    ).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    item.approval_status = "pending"
+    item.public_submitted_at = datetime.utcnow()
+    db.commit()
+    log_action(db, current_user.id, "submit_to_public", "item", item_id)
+    return {"message": "Submitted for admin review"}
+
+
+@app.post("/items/{item_id}/make-private")
+def make_item_private(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    item = db.query(models.Item).filter(
+        models.Item.id == item_id,
+        models.Item.user_id == current_user.id,
+    ).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    item.is_public = False
+    item.approval_status = "private"
+    db.commit()
+    return {"message": "Item is now private"}
+
+
+# ---------------------------------------------------------------------------
+# Admin endpoints
+# ---------------------------------------------------------------------------
+
+@app.get("/admin/stats")
+def admin_stats(
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    return {
+        "total_users": db.query(models.User).count(),
+        "total_items": db.query(models.Item).count(),
+        "total_public_items": db.query(models.Item).filter(models.Item.is_public == True).count(),
+        "pending_approvals": db.query(models.Item).filter(models.Item.approval_status == "pending").count(),
+        "total_components": db.query(models.Component).count(),
+        "vulnerable_components": db.query(models.Component).filter(models.Component.is_vulnerable == True).count(),
+        "total_tracked": db.query(models.TrackedProduct).count(),
+        "open_sbom_requests": db.query(models.SbomRequest).filter(models.SbomRequest.status == "open").count(),
+    }
+
+
+@app.get("/admin/users")
+def admin_get_users(
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    users = db.query(models.User).all()
+    result = []
+    for user in users:
+        item_count = db.query(models.Item).filter(models.Item.user_id == user.id).count()
+        result.append({
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "role": user.role,
+            "created_at": user.created_at,
+            "is_active": user.is_active,
+            "total_items": item_count,
+        })
+    return result
+
+
+@app.patch("/admin/users/{user_id}/role")
+def admin_update_role(
+    user_id: int,
+    payload: dict,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    new_role = payload.get("role")
+    if new_role not in ["user", "admin"]:
+        raise HTTPException(status_code=400, detail="Role must be user or admin")
+    user.role = new_role
+    db.commit()
+    return {"message": f"Role updated to {new_role}"}
+
+
+@app.patch("/admin/users/{user_id}/toggle-active")
+def admin_toggle_active(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.is_active = not user.is_active
+    db.commit()
+    return {"is_active": user.is_active}
+
+
+@app.get("/admin/items")
+def admin_get_all_items(
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    items = db.query(models.Item).all()
+    result = []
+    for item in items:
+        owner = db.query(models.User).filter(models.User.id == item.user_id).first()
+        component_count = db.query(models.ItemComponent).filter(
+            models.ItemComponent.item_id == item.id
+        ).count()
+        result.append({
+            "id": item.id,
+            "name": item.name,
+            "item_type": item.item_type,
+            "category": item.category,
+            "manufacturer": item.manufacturer,
+            "is_public": item.is_public,
+            "is_verified": item.is_verified,
+            "is_featured": item.is_featured,
+            "approval_status": item.approval_status,
+            "upvotes": item.upvotes or 0,
+            "component_count": component_count,
+            "owner_username": owner.username if owner else "unknown",
+            "created_at": item.created_at,
+        })
+    return result
+
+
+@app.get("/admin/pending")
+def admin_get_pending(
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    items = db.query(models.Item).filter(
+        models.Item.approval_status == "pending"
+    ).all()
+    result = []
+    for item in items:
+        owner = db.query(models.User).filter(models.User.id == item.user_id).first()
+        component_count = db.query(models.ItemComponent).filter(
+            models.ItemComponent.item_id == item.id
+        ).count()
+        result.append({
+            "id": item.id,
+            "name": item.name,
+            "item_type": item.item_type,
+            "category": item.category,
+            "manufacturer": item.manufacturer,
+            "version": item.version,
+            "description": item.description,
+            "component_count": component_count,
+            "owner_username": owner.username if owner else "unknown",
+            "submitted_at": item.public_submitted_at,
+        })
+    return result
+
+
+@app.post("/admin/items/{item_id}/approve")
+def admin_approve_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    item = db.query(models.Item).filter(models.Item.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    item.is_public = True
+    item.approval_status = "approved"
+    item.public_approved_at = datetime.utcnow()
+    db.commit()
+    log_action(db, admin.id, "approve_item", "item", item_id)
+    return {"message": f"{item.name} approved"}
+
+
+@app.post("/admin/items/{item_id}/reject")
+def admin_reject_item(
+    item_id: int,
+    payload: dict,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    item = db.query(models.Item).filter(models.Item.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    item.approval_status = "rejected"
+    item.is_public = False
+    item.rejection_note = payload.get("note", "")
+    db.commit()
+    return {"message": "Item rejected"}
+
+
+@app.post("/admin/items/{item_id}/verify")
+def admin_verify_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    item = db.query(models.Item).filter(models.Item.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    item.is_verified = not item.is_verified
+    db.commit()
+    return {"is_verified": item.is_verified}
+
+
+@app.post("/admin/items/{item_id}/feature")
+def admin_feature_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    item = db.query(models.Item).filter(models.Item.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    item.is_featured = not item.is_featured
+    db.commit()
+    return {"is_featured": item.is_featured}
+
+
+@app.delete("/admin/items/{item_id}")
+def admin_delete_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    item = db.query(models.Item).filter(models.Item.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    db.query(models.ItemComponent).filter(
+        models.ItemComponent.item_id == item_id
+    ).delete()
+    db.delete(item)
+    db.commit()
+    return {"message": "Item deleted"}
+
+
+@app.post("/admin/components/{component_id}/flag-vulnerable")
+def admin_flag_vulnerable(
+    component_id: int,
+    payload: dict,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    component = db.query(models.Component).filter(
+        models.Component.id == component_id
+    ).first()
+    if not component:
+        raise HTTPException(status_code=404, detail="Component not found")
+    component.is_vulnerable = True
+    component.vulnerability_note = payload.get("description")
+    component.vulnerability_cve = payload.get("cve_id")
+    db.commit()
+    alert = models.VulnerabilityAlert(
+        component_name=component.component_name,
+        component_version=component.version,
+        cve_id=payload.get("cve_id"),
+        severity=payload.get("severity"),
+        description=payload.get("description"),
+        flagged_by=admin.id,
+    )
+    db.add(alert)
+    db.commit()
+    return {"message": f"{component.component_name} flagged as vulnerable"}
+
+
+@app.get("/admin/audit-log")
+def admin_audit_log(
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    logs = db.query(models.AuditLog).order_by(
+        models.AuditLog.created_at.desc()
+    ).limit(200).all()
+    result = []
+    for log in logs:
+        user = db.query(models.User).filter(models.User.id == log.user_id).first()
+        result.append({
+            "id": log.id,
+            "action": log.action,
+            "resource_type": log.resource_type,
+            "resource_id": log.resource_id,
+            "details": log.details,
+            "created_at": log.created_at,
+            "username": user.username if user else "unknown",
+        })
+    return result
+
+
+@app.get("/admin/vulnerable-components")
+def admin_get_vulnerable(
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    components = db.query(models.Component).filter(
+        models.Component.is_vulnerable == True
+    ).all()
+    return [
+        {
+            "id": c.id,
+            "component_name": c.component_name,
+            "version": c.version,
+            "vulnerability_note": c.vulnerability_note,
+            "vulnerability_cve": c.vulnerability_cve,
+        }
+        for c in components
+    ]
+
+
+@app.post("/admin/seed-catalog")
+def seed_catalog(
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    from app.seed_real_data import seed_public_catalog
+    count = seed_public_catalog(db, admin_user_id=admin.id)
+    return {"message": f"Seeded {count} items to public catalog"}
+
+
+# ---------------------------------------------------------------------------
+# Startup - create first admin
+# ---------------------------------------------------------------------------
+
+@app.on_event("startup")
+def create_first_admin():
+    db = SessionLocal()
+    try:
+        admin_exists = db.query(models.User).filter(
+            models.User.role == "admin"
+        ).first()
+        if not admin_exists:
+            admin_username = os.getenv("ADMIN_USERNAME", "admin")
+            admin_password = os.getenv("ADMIN_PASSWORD", "sbomadmin2024")
+            admin_email = os.getenv("ADMIN_EMAIL", "admin@sbomfinder.com")
+            existing = db.query(models.User).filter(
+                models.User.username == admin_username
+            ).first()
+            if existing:
+                existing.role = "admin"
+                db.commit()
+                print(f"Upgraded {admin_username} to admin role")
+            else:
+                admin_user = models.User(
+                    username=admin_username,
+                    email=admin_email,
+                    hashed_password=hash_password(admin_password),
+                    role="admin",
+                )
+                db.add(admin_user)
+                db.commit()
+                print(f"Admin created: {admin_username}")
+    except Exception as e:
+        print(f"Startup admin creation failed: {e}")
+    finally:
+        db.close()

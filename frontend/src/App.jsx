@@ -9,6 +9,8 @@ import Import from "./pages/Import";
 import ReverseLookup from "./pages/ReverseLookup";
 import TrackedProducts from "./pages/TrackedProducts";
 import Discover from "./pages/Discover";
+import Browse from "./pages/Browse";
+import Admin from "./pages/Admin";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import { useAuth } from "./context/Authcontext";
@@ -21,6 +23,7 @@ function App() {
       <Routes>
         <Route path="/login" element={token ? <Navigate to="/" replace /> : <Login />} />
         <Route path="/register" element={token ? <Navigate to="/" replace /> : <Register />} />
+        <Route path="/browse" element={<Browse />} />
         <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
         <Route path="/item/:id" element={<ProtectedRoute><ItemDetails /></ProtectedRoute>} />
         <Route path="/compare" element={<ProtectedRoute><Compare /></ProtectedRoute>} />
@@ -29,6 +32,7 @@ function App() {
         <Route path="/reverse-lookup" element={<ProtectedRoute><ReverseLookup /></ProtectedRoute>} />
         <Route path="/tracked-products" element={<ProtectedRoute><TrackedProducts /></ProtectedRoute>} />
         <Route path="/discover" element={<ProtectedRoute><Discover /></ProtectedRoute>} />
+        <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

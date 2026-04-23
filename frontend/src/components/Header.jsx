@@ -13,12 +13,14 @@ export default function Header() {
 
   const links = [
     { label: "Dashboard", path: "/" },
+    { label: "Browse", path: "/browse" },
     { label: "Discover", path: "/discover" },
     { label: "Compare", path: "/compare" },
     { label: "Reverse Lookup", path: "/reverse-lookup" },
     { label: "Import", path: "/import" },
     { label: "Stats", path: "/stats" },
     { label: "Tracked", path: "/tracked-products" },
+    ...(user?.role === "admin" ? [{ label: "🛡️ Admin", path: "/admin" }] : []),
   ];
 
   return (
@@ -43,6 +45,11 @@ export default function Header() {
         ))}
       </nav>
       <div className="header-user">
+        {user?.role === "admin" && (
+          <span style={{ fontSize: "0.7rem", padding: "2px 8px", borderRadius: "10px", background: "rgba(167,139,250,0.15)", color: "#a78bfa", marginRight: "8px" }}>
+            Admin
+          </span>
+        )}
         <span className="header-username">{user?.username}</span>
         <button className="ghost header-logout" onClick={handleLogout}>Sign out</button>
       </div>
