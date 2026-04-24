@@ -66,57 +66,7 @@ The application lets users import SBOMs in standard formats (CycloneDX, SPDX), a
 - **Backend** — deployed on [Render](https://render.com/) at `https://sbom-finder-1.onrender.com`
 - **Database** — [Supabase](https://supabase.com/) managed PostgreSQL
 
----
 
-## Project Structure
-
-SBOM-Finder/
-├── backend/
-│   ├── app/
-│   │   ├── main.py           # All FastAPI routes and startup logic
-│   │   ├── models.py         # SQLAlchemy database models
-│   │   ├── schemas.py        # Pydantic request and response schemas
-│   │   ├── auth.py           # JWT auth, password hashing, user dependency
-│   │   ├── database.py       # DB engine, session, and Base setup
-│   │   ├── fetchers.py       # External package registry search (npm, PyPI, Maven, etc.)
-│   │   ├── importers.py      # CycloneDX and SPDX JSON parsers
-│   │   ├── ai_discoverer.py  # Claude AI SBOM generation
-│   │   └── syft_scanner.py   # Syft binary scanning wrapper
-│   └── requirements.txt
-│
-├── frontend/
-│   ├── src/
-│   │   ├── App.jsx               # Root component with all route definitions
-│   │   ├── api.js                # Shared fetch helper with automatic JWT injection
-│   │   ├── config.js             # API base URL (points to Render backend)
-│   │   ├── context/
-│   │   │   └── Authcontext.jsx   # Auth state (token, user) via React Context
-│   │   ├── components/
-│   │   │   ├── Header.jsx        # Top navigation bar
-│   │   │   └── ProtectedRoute.jsx # Auth guard wrapper for protected pages
-│   │   └── pages/
-│   │       ├── Home.jsx          # User dashboard and SBOM library
-│   │       ├── Browse.jsx        # Public catalog (no login required)
-│   │       ├── Discover.jsx      # AI-powered SBOM discovery
-│   │       ├── Generate.jsx      # Syft file upload and SBOM generation
-│   │       ├── Import.jsx        # CycloneDX and SPDX file import
-│   │       ├── Compare.jsx       # Side-by-side item comparison
-│   │       ├── ReverseLookup.jsx # Component to products reverse search
-│   │       ├── Stats.jsx         # Usage statistics
-│   │       ├── TrackedProducts.jsx # Product watchlist
-│   │       ├── ItemDetails.jsx   # Single SBOM detail view
-│   │       ├── Admin.jsx         # Admin moderation panel
-│   │       ├── Login.jsx         # Login form
-│   │       └── Register.jsx      # Registration form
-│   ├── Vercel.json               # Vercel SPA rewrite rule
-│   ├── package.json
-│   └── vite.config.js
-│
-├── sample-cyclonedx.json     # Sample CycloneDX SBOM for testing imports
-├── sample-spdx.json          # Sample SPDX SBOM for testing imports
-└── README.md
-
----
 
 ## Getting Started
 
