@@ -2,6 +2,7 @@ from app.models import Item, Component, ItemComponent
 
 
 def guess_item_type(name: str, category: str | None = None):
+    # Scans name and category for hardware keywords — defaults to "application" if none match
     text = f"{name or ''} {category or ''}".lower()
 
     device_keywords = [
@@ -18,6 +19,7 @@ def guess_item_type(name: str, category: str | None = None):
 
 
 def guess_category(name: str):
+    # Maps known product names to a readable category label — falls back to "Software Application"
     text = (name or "").lower()
 
     mapping = {
@@ -41,6 +43,8 @@ def guess_category(name: str):
 
 
 def normalize_supplier(value):
+    # Supplier can come in as a plain string or a dict like {"name": "Acme"}
+    # This handles both cases and returns just the name string
     if isinstance(value, dict):
         return value.get("name")
     if isinstance(value, str):
@@ -49,6 +53,8 @@ def normalize_supplier(value):
 
 
 def extract_cyclonedx_license(comp: dict):
+    # CycloneDX nests license info deeply: comp.licenses[0].license.id
+    # We prefer the SPDX id (e.g. "MIT") but fall back to the display name
     licenses = comp.get("licenses", [])
     if licenses and isinstance(licenses, list):
         first_license = licenses[0]
@@ -60,6 +66,8 @@ def extract_cyclonedx_license(comp: dict):
 
 
 def get_or_create_component(db, comp_name, comp_version=None, comp_supplier=None, comp_license=None):
+    # Reuse existing component rows instead of creating duplicates.
+    # Two products using "openssl 3.1.0" should point to the same row.
     existing_component = (
         db.query(Component)
         .filter(
@@ -72,6 +80,7 @@ def get_or_create_component(db, comp_name, comp_version=None, comp_supplier=None
     if existing_component:
         return existing_component
 
+    # No match found — create a new component row
     component_record = Component(
         component_name=comp_name,
         version=comp_version,
@@ -85,6 +94,8 @@ def get_or_create_component(db, comp_name, comp_version=None, comp_supplier=None
 
 
 def link_item_component(db, item_id, component_id):
+    # Creates the many-to-many join row between an item and a component.
+    # Checks first so we never create duplicate links.
     link_exists = (
         db.query(ItemComponent)
         .filter(
@@ -100,6 +111,8 @@ def link_item_component(db, item_id, component_id):
 
 
 def import_cyclonedx_json(data, db, user_id=None):
+    # CycloneDX structure: metadata.component holds the top-level product info,
+    # and components[] holds the list of dependencies.
     metadata = data.get("metadata", {})
     component_meta = metadata.get("component", {})
 
@@ -110,6 +123,7 @@ def import_cyclonedx_json(data, db, user_id=None):
     item_type = guess_item_type(item_name, component_meta.get("type"))
     item_category = guess_category(item_name)
 
+    # Avoid creating duplicates if the same file is uploaded more than once
     existing_item = (
         db.query(Item)
         .filter(
@@ -141,11 +155,12 @@ def import_cyclonedx_json(data, db, user_id=None):
     db.commit()
     db.refresh(item)
 
+    # Loop through every component in the SBOM and link it to this item
     components = data.get("components", [])
     for comp in components:
         comp_name = comp.get("name")
         if not comp_name:
-            continue
+            continue  # skip components with no name — they can't be identified
 
         comp_version = comp.get("version")
         comp_supplier = normalize_supplier(comp.get("supplier"))
@@ -165,6 +180,11 @@ def import_cyclonedx_json(data, db, user_id=None):
 
 
 def import_spdx_json(data, db, user_id=None):
+    # SPDX uses different field names than CycloneDX:
+    #   "versionInfo" instead of "version"
+    #   "packages" instead of "components"
+    #   "licenseConcluded" instead of nested licenses object
+    #   "documentComment" instead of "description"
     item_name = data.get("name", "Unknown SPDX Item")
     item_version = data.get("versionInfo")
     item_supplier = normalize_supplier(data.get("supplier"))
@@ -172,6 +192,7 @@ def import_spdx_json(data, db, user_id=None):
     item_type = guess_item_type(item_name)
     item_category = guess_category(item_name)
 
+    # Same dedup check as CycloneDX — don't re-import the same file
     existing_item = (
         db.query(Item)
         .filter(
@@ -203,6 +224,7 @@ def import_spdx_json(data, db, user_id=None):
     db.commit()
     db.refresh(item)
 
+    # SPDX calls them "packages" — process each one the same way as CycloneDX components
     packages = data.get("packages", [])
     for pkg in packages:
         comp_name = pkg.get("name")
@@ -211,6 +233,7 @@ def import_spdx_json(data, db, user_id=None):
 
         comp_version = pkg.get("versionInfo")
         comp_supplier = normalize_supplier(pkg.get("supplier"))
+        # Prefer the concluded license over the declared one
         comp_license = pkg.get("licenseConcluded") or pkg.get("licenseDeclared")
 
         component_record = get_or_create_component(
