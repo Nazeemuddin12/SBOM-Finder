@@ -25,7 +25,7 @@ export default function Login() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Login failed");
       login(data.access_token, data.user);
-      navigate("/");
+      navigate(data.user.role === "admin" ? "/admin" : "/");
     } catch (err) {
       setError(err.message);
     } finally {
