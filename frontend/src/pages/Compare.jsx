@@ -1,16 +1,38 @@
+// ============================================================
+// Compare.jsx
+// SBOM Finder — Side-by-Side SBOM Comparison
+// ============================================================
+// Lets the user select 2–4 items from their workspace and see
+// a full component matrix showing which components are:
+//
+//   common  → present in ALL selected items   (green)
+//   partial → present in SOME items           (yellow)
+//   unique  → present in only ONE item        (grey)
+//
+// The backend endpoint /compare-multi does all the set math.
+// This component is purely responsible for selection UI and
+// rendering the returned comparison_rows matrix.
+// ============================================================
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../api";
 
+
 function Compare() {
   const navigate = useNavigate();
-  const [items, setItems] = useState([]);
-  const [selectedItems, setSelectedItems] = useState([]);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [comparing, setComparing] = useState(false);
 
+  const [items, setItems]             = useState([]);    // all items in the workspace
+  const [selectedItems, setSelectedItems] = useState([]); // array of selected item IDs
+  const [result, setResult]           = useState(null);  // matrix response from the API
+  const [error, setError]             = useState("");
+  const [loading, setLoading]         = useState(true);  // true while loading the item list
+  const [comparing, setComparing]     = useState(false); // true while the comparison runs
+
+
+  // ── Load workspace items on mount ────────────────────────────────────────
+  // We need the full list so the user can select which ones to compare.
+  // The empty dependency array [] means this runs exactly once after mount.
   useEffect(() => {
     apiFetch("/items")
       .then((res) => {
@@ -21,13 +43,28 @@ function Compare() {
       .catch((err) => { setError(err.message); setLoading(false); });
   }, []);
 
+
+  /**
+   * handleCheckboxChange — toggles an item's selection state.
+   * Uses the functional setState form so we always work with
+   * the latest state value, not a stale closure.
+   */
   const handleCheckboxChange = (itemId) => {
     setSelectedItems((prev) =>
-      prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId]
+      prev.includes(itemId)
+        ? prev.filter((id) => id !== itemId) // deselect
+        : [...prev, itemId]                  // select
     );
   };
 
+
+  /**
+   * handleCompare — validates the selection count then calls the API.
+   * item_ids are passed as a comma-separated query param.
+   * The response shape is: { selected_items, comparison_rows }
+   */
   const handleCompare = async () => {
+    // Enforce the 2–4 item limit before hitting the network
     if (selectedItems.length < 2) {
       setError("Please select at least 2 items to compare.");
       setResult(null);
@@ -38,13 +75,16 @@ function Compare() {
       setResult(null);
       return;
     }
+
     setComparing(true);
     setError("");
+
     try {
+      // Backend expects: GET /compare-multi?item_ids=1,2,3
       const res = await apiFetch(`/compare-multi?item_ids=${selectedItems.join(",")}`);
       if (!res.ok) throw new Error("Comparison failed");
       const data = await res.json();
-      setResult(data);
+      setResult(data); // triggers the matrix section to appear
     } catch (err) {
       setError(err.message);
       setResult(null);
@@ -53,27 +93,46 @@ function Compare() {
     }
   };
 
+
+  /**
+   * handleClear — resets the selection and hides the result matrix.
+   * Lets the user start a new comparison without a page reload.
+   */
   const handleClear = () => {
     setSelectedItems([]);
     setResult(null);
     setError("");
   };
 
+
+  /**
+   * getClassForCategory — maps the backend category string to a CSS class.
+   * CSS classes are defined in App.css:
+   *   .tag-common  → green background
+   *   .tag-partial → yellow background
+   *   .tag-unique  → grey background
+   */
   const getClassForCategory = (category) => {
-    if (category === "common") return "tag-common";
+    if (category === "common")  return "tag-common";
     if (category === "partial") return "tag-partial";
-    if (category === "unique") return "tag-unique";
+    if (category === "unique")  return "tag-unique";
     return "";
   };
+
 
   return (
     <div className="page-shell">
       <button className="back-btn ghost" onClick={() => navigate("/")}>⬅ Back</button>
 
+      {/* ── Selection panel ───────────────────────────────────────────────── */}
       <section className="section-card">
         <h2 className="section-title">Compare Items</h2>
-        <p className="section-subtitle">Select 2 to 4 items and inspect shared, partial, and unique SBOM components.</p>
+        <p className="section-subtitle">
+          Select 2 to 4 items and inspect shared, partial, and unique SBOM components.
+        </p>
 
+        {/* Loading — shown while the item list is being fetched.
+            Backend may be cold-starting on Render's free tier (up to 30s). */}
         {loading && (
           <div style={{ color: "var(--muted)", padding: "1rem 0" }}>
             <p>Loading your items...</p>
@@ -83,13 +142,16 @@ function Compare() {
           </div>
         )}
 
+        {/* Empty workspace — prompt the user to import something first */}
         {!loading && items.length === 0 && !error && (
           <div className="empty-state">No items found. Import an SBOM file first.</div>
         )}
 
+        {/* Checkbox grid — one selectable card per workspace item */}
         {!loading && items.length > 0 && (
           <div className="compare-selection-grid">
             {items.map((item) => (
+              // Wrapping in <label> makes the whole card clickable, not just the checkbox
               <label key={item.id} className="compare-option">
                 <div style={{ display: "flex", alignItems: "start", gap: "12px" }}>
                   <input
@@ -110,6 +172,7 @@ function Compare() {
           </div>
         )}
 
+        {/* Action row — Compare button shows count; Clear resets everything */}
         <div className="actions-row" style={{ marginTop: "18px" }}>
           <button onClick={handleCompare} disabled={comparing || loading}>
             {comparing ? "Comparing..." : "Run Comparison"}
@@ -117,30 +180,40 @@ function Compare() {
           <button className="ghost" onClick={handleClear}>Clear</button>
         </div>
 
+        {/* Validation / API error message */}
         {error && <p className="error-text" style={{ marginTop: "14px" }}>{error}</p>}
       </section>
 
+      {/* ── Comparison matrix ─────────────────────────────────────────────── */}
+      {/* Only rendered after a successful compare API call */}
       {result && (
         <section className="section-card">
           <h2 className="section-title">Comparison Matrix</h2>
           <p className="section-subtitle">
             Common = present in all selected items · Partial = present in some · Unique = present in only one
           </p>
+
           <div className="table-wrap">
             <table className="compare-table">
               <thead>
                 <tr>
                   <th>Component</th>
-                  {result.selected_items.map((item, idx) => <th key={idx}>{item}</th>)}
+                  {/* Dynamic columns — one per selected item name */}
+                  {result.selected_items.map((item, idx) => (
+                    <th key={idx}>{item}</th>
+                  ))}
                   <th>Category</th>
                 </tr>
               </thead>
               <tbody>
                 {result.comparison_rows.map((row, idx) => (
                   <tr key={idx}>
+                    {/* Component name in the first column */}
                     <td><strong>{row.component_name}</strong></td>
+
+                    {/* One cell per item — shows version + license if present, dash if absent */}
                     {result.selected_items.map((itemName, i) => {
-                      const details = row.item_details[itemName];
+                      const details = row.item_details[itemName]; // undefined if not in this item
                       return (
                         <td key={i}>
                           {details ? (
@@ -150,11 +223,18 @@ function Compare() {
                                 v{details.version || "N/A"} · {details.license || "N/A"}
                               </div>
                             </div>
-                          ) : <div style={{ color: "var(--muted)" }}>—</div>}
+                          ) : (
+                            // Em dash — this item does NOT contain this component
+                            <div style={{ color: "var(--muted)" }}>—</div>
+                          )}
                         </td>
                       );
                     })}
-                    <td className={getClassForCategory(row.category)}>{row.category}</td>
+
+                    {/* Colour-coded category pill in the last column */}
+                    <td className={getClassForCategory(row.category)}>
+                      {row.category}
+                    </td>
                   </tr>
                 ))}
               </tbody>

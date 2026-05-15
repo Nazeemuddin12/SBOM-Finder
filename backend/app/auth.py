@@ -1,3 +1,18 @@
+# ============================================================
+# auth.py
+# SBOM Finder — Authentication & Authorization Utilities
+# ============================================================
+# Provides three things used across the entire API:
+#   1. Password hashing (bcrypt via passlib)
+#   2. JWT creation & verification (jose library)
+#   3. FastAPI dependency functions injected into routes
+#
+# Security decisions:
+#   - bcrypt is intentionally slow → brute-force is expensive
+#   - JWT is stateless → no DB lookup per request (just signature verify)
+#   - 24-hour expiry → balance between UX and security
+# ============================================================
+
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -11,148 +26,148 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app import models
 
-# ---------------------------------------------------------------------------
-# Security configuration
-# ---------------------------------------------------------------------------
-
-# SECRET_KEY is used to sign and verify JWT tokens.
-# Always set this via environment variable in production — never hardcode it.
+# ── Security configuration ─────────────────────────────────────
+# SECRET_KEY must be set via environment variable in production.
+# The default value here is for local development ONLY — never
+# ship a hardcoded secret to a real server.
 SECRET_KEY = os.getenv("SECRET_KEY", "sbom-finder-secret-key")
 
-# HS256 is a symmetric signing algorithm — same key is used to sign and verify.
+# HS256 (HMAC-SHA256) is a symmetric signing algorithm.
+# Both signing and verifying use the same SECRET_KEY.
+# RS256 (asymmetric) would be better for multi-service architectures
+# but adds complexity we don't need for a single-service API.
 ALGORITHM = "HS256"
 
-# Tokens expire after 24 hours (60 minutes x 24).
-# After expiry the user must log in again to get a fresh token.
+# Tokens are valid for 24 hours before the user must log in again.
+# Shorter = more secure, longer = better UX; 24h is a reasonable balance.
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 
-# ---------------------------------------------------------------------------
-# Password hashing
-# ---------------------------------------------------------------------------
 
-# CryptContext handles all password hashing logic.
-# bcrypt is used because it is slow by design, making brute-force attacks expensive.
-# deprecated="auto" means if a weaker scheme was used before, it gets re-hashed
-# automatically the next time the user logs in.
+# ── Password hashing ───────────────────────────────────────────
+# CryptContext abstracts over hashing algorithms.
+# "bcrypt" is the only active scheme here.
+# deprecated="auto" → if we ever add a second scheme, old hashes
+#   are transparently re-hashed on the next successful login.
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# ---------------------------------------------------------------------------
-# OAuth2 scheme
-# ---------------------------------------------------------------------------
 
-# This tells FastAPI to look for a Bearer token in the Authorization header.
-# tokenUrl is only used by the /docs Swagger UI to know where to POST credentials.
+# ── OAuth2 Bearer token scheme ─────────────────────────────────
+# Tells FastAPI to extract the token from the Authorization: Bearer <token> header.
+# tokenUrl only matters for the Swagger /docs UI login form — it does not
+# affect how the actual login endpoint works.
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
-# ---------------------------------------------------------------------------
-# Password utilities
-# ---------------------------------------------------------------------------
+# ── Password utilities ─────────────────────────────────────────
 
 def hash_password(password: str) -> str:
-    """
-    Hash a plain-text password using bcrypt before storing it in the database.
-    The output is a salted hash — two identical passwords produce different hashes.
-    Never store plain-text passwords.
+    """Hash a plain-text password with bcrypt before storing it.
+
+    bcrypt automatically generates a random salt, so calling this twice
+    with the same password produces two different hashes — both verify
+    correctly. The salt is embedded in the returned hash string.
+
+    Never store plain-text passwords or reversible hashes (MD5, SHA-1).
     """
     return pwd_context.hash(password)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    """
-    Compare a plain-text password against a stored bcrypt hash.
-    Uses constant-time comparison internally to prevent timing attacks.
-    Returns True if they match, False otherwise.
+    """Check a plain-text password against a stored bcrypt hash.
+
+    Uses constant-time comparison internally (via hmac.compare_digest)
+    to prevent timing attacks where an attacker could guess characters
+    by measuring how long the comparison takes.
+
+    Returns True on match, False on mismatch.
     """
     return pwd_context.verify(plain, hashed)
 
 
-# ---------------------------------------------------------------------------
-# JWT token creation
-# ---------------------------------------------------------------------------
+# ── JWT token creation ─────────────────────────────────────────
 
 def create_access_token(data: dict) -> str:
+    """Create a signed JWT access token from an arbitrary payload dict.
+
+    Typical usage:
+        token = create_access_token({"sub": str(user.id)})
+
+    The token encodes:
+      - All key/value pairs from `data`
+      - An "exp" (expiry) timestamp 24 hours in the future
+
+    The token is signed with SECRET_KEY — any modification to the payload
+    after signing will cause verification to fail on the next request.
+
+    Returns a compact dot-separated JWT string: header.payload.signature
     """
-    Create a signed JWT access token from the given payload data.
+    payload = data.copy()  # don't mutate the caller's dict
 
-    Adds an expiration timestamp to the payload before signing.
-    The token is signed with SECRET_KEY so any tampering will be detected
-    when the token is decoded on the next request.
-
-    Args:
-        data: Dictionary of claims to include — typically {"sub": str(user.id)}
-
-    Returns:
-        A compact JWT string that the client stores and sends with each request.
-    """
-    payload = data.copy()
-
-    # Calculate expiry time in UTC and add it to the payload as the "exp" claim
+    # Expiry must use timezone-aware datetime for jose to compare correctly
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    payload.update({"exp": expire})
+    payload.update({"exp": expire})  # "exp" is the standard JWT expiry claim
 
-    # Encode and sign the token — returns a compact string like "eyJ..."
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
-# ---------------------------------------------------------------------------
-# Database session dependency
-# ---------------------------------------------------------------------------
+# ── Database session dependency ────────────────────────────────
 
 def get_db():
-    """
-    FastAPI dependency that provides a database session for the duration of a request.
+    """FastAPI dependency — yields a SQLAlchemy session for one request.
 
-    Uses a generator so the session is always properly closed after the request
-    finishes, even if an exception was raised. This prevents connection leaks.
+    The generator pattern ensures db.close() is always called, even if
+    the route handler raises an exception. This returns the connection
+    to the pool promptly and prevents connection exhaustion under load.
 
-    Usage in a route:
-        def my_route(db: Session = Depends(get_db)):
-            ...
+    Inject into any route that needs database access:
+        @app.get("/items")
+        def list_items(db: Session = Depends(get_db)):
+            return db.query(models.Item).all()
     """
     db = SessionLocal()
     try:
-        yield db        # session is active while the route handler runs
+        yield db        # route handler runs here with an active session
     finally:
-        db.close()      # always close — frees the connection back to the pool
+        db.close()      # always runs — connection returns to the pool
 
 
-# ---------------------------------------------------------------------------
-# Current user dependency
-# ---------------------------------------------------------------------------
+# ── Current user dependency ────────────────────────────────────
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> models.User:
-    """
-    FastAPI dependency that validates the JWT and returns the logged-in user.
+    """FastAPI dependency — decode the JWT and return the authenticated User.
 
-    Injected into any route that requires authentication. Performs three checks:
-      1. Decodes and verifies the JWT signature and expiry
-      2. Extracts the user ID from the "sub" claim
-      3. Confirms the user still exists in the database
+    Chain of validation:
+      1. Extract the Bearer token from the Authorization header
+      2. Decode and verify the JWT signature with SECRET_KEY
+      3. Check the token hasn't expired (jose handles this automatically)
+      4. Extract the user_id from the "sub" claim
+      5. Look up the user in the DB — they may have been deleted since login
 
-    Raises HTTP 401 if any check fails so the client knows to re-authenticate.
+    Raises HTTP 401 at any failure point so the client knows to re-authenticate.
 
-    Usage in a route:
-        def my_route(current_user: models.User = Depends(get_current_user)):
+    Inject into protected routes:
+        @app.get("/items")
+        def list_items(current_user: models.User = Depends(get_current_user)):
             ...
     """
     try:
-        # Decode the token — raises JWTError if expired or signature is invalid
+        # jose raises JWTError for: expired tokens, bad signature, malformed strings
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
 
-        # "sub" holds the user ID as a string (standard JWT claim name)
+        # "sub" is the standard JWT subject claim — we store the user's DB id here
         user_id = payload.get("sub")
         if user_id is None:
             raise HTTPException(status_code=401, detail="Invalid token")
 
     except JWTError:
-        # Covers expired tokens, bad signatures, and malformed JWT strings
+        # Covers all JWT failure modes — give the same generic message to
+        # avoid leaking information about *why* validation failed
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-    # Look up the user in the database — they may have been deleted since login
+    # Confirm the user still exists — they might have been deleted since logging in
     user = db.query(models.User).filter(models.User.id == int(user_id)).first()
     if user is None:
         raise HTTPException(status_code=401, detail="User not found")

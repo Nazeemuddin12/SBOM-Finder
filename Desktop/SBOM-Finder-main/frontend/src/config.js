@@ -1,1 +1,0 @@
-export const API_BASE_URL = "https://sbom-finder-1.onrender.com";
